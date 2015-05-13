@@ -20,7 +20,7 @@ class Map(object):
         self.new = 0
 
     def load(self):
-        db = mysql.connect(host='52.24.108.112', user='danny',passwd='reidchar1',
+        db = mysql.connect(host='172.31.39.105', user='danny',passwd='reidchar1',
                 db='achaea',cursorclass=MySQLdb.cursors.DictCursor)
         cur=db.cursor()
         cur.execute('SELECT roomid, name, area, environment, coords, details '
