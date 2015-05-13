@@ -19,8 +19,6 @@ class Map(object):
         self.exits= {}
         self.new = 0
 
-        load()
-
     def load(self):
         db = mysql.connect(host='52.24.108.112', user='danny',passwd='reidchar1',
                 db='achaea',cursorclass=MySQLdb.cursors.DictCursor)
