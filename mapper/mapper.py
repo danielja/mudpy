@@ -1,9 +1,10 @@
 from sage.signals.gmcp import room, room_add_item
 from sage.signals import pre_shutdown
+from sage import player
 import meta
 
 from maplib import Map
-#from itemmaplib import ItemMap
+from itemlib import ItemMap
 #from warelib import WaresMap
 
 from sage import echo, ansi
@@ -11,7 +12,7 @@ import sage
 
 
 mapdata = Map(meta.path + '/mapdata.json.gz')
-#itemdata = ItemMap(meta.path + '/itemdata.json.gz')
+itemdata = ItemMap(meta.path + '/itemdata.json.gz')
 #waresdata = WaresMap(meta.path + '/waresdata.json.gz')
 
 def add_items(**kwargs):
@@ -31,7 +32,7 @@ def add_items(**kwargs):
                     item.denizen,
                     item.dead,
                     item.container,
-                    [room.area],
+                    room.area,
                     item_new
                )
             else:
@@ -43,14 +44,14 @@ def add_items(**kwargs):
             itemdata.add(
                 item.id,
                 item.name,
-                0,
+                player.room.id,
                 item.wearable,
                 item.groupable,
                 item.takeable,
                 item.denizen,
                 item.dead,
                 item.container,
-                [],
+                player.room.area,
                 item_new
            )
  
@@ -75,7 +76,7 @@ def room_info(**kwargs):
             room.map,
             new
         )
-    #add_items(**kwargs)
+    add_items(**kwargs)
 
     def ql_info(room, new):
         for line in sage.buffer:
@@ -90,15 +91,17 @@ def room_info(**kwargs):
 
 
 room.connect(room_info)
-#room_add_item.connect(add_items)
+room_add_item.connect(add_items)
 
 
 def init():
     mapdata.load()
+    itemdata.load()
 
 
 def shutdown(**kwargs):
     mapdata.save()
+    itemdata.save()
 
 pre_shutdown.connect(shutdown)
 
