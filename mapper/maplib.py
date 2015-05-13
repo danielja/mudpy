@@ -102,7 +102,7 @@ class Map(object):
                 'details': details,
                 'updated': True
                 }
-        for targroom, direction in exit.items():
+        for targroom, direction in exits.items():
             if targroom not in self.rooms[id]['exits']:
                 self.rooms['updated'] = True
                 self.rooms[id]['exits'][targroom] = {
