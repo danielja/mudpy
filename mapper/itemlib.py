@@ -23,6 +23,7 @@ class ItemMap(object):
               self.login = [x.strip().split(':') for x in f.readlines()][0]
 
     def load(self):
+        self.items={}
         db = mysql.connect(host=self.login[0], user=self.login[1],passwd=self.login[2],
                 db='achaea',cursorclass=MySQLdb.cursors.DictCursor)
         cur=db.cursor()
@@ -39,7 +40,7 @@ class ItemMap(object):
             res['classified'] = ''
             res['quest_actions'] = ''
             res['room_actions'] = ''
-            res['areas'] = ast.literal_eval(res['areas'])
+            res['areas'] = res['areas'].split("|")
             self.items[res['itemid']] = res
 
         cur.execute('SELECT itemid, long_name, short_name, classified, quest_actions, room_actions '
@@ -78,33 +79,33 @@ class ItemMap(object):
                     cur.execute('INSERT into achaea.item_actions '
                         ' (long_name) '
                         ' VALUES '
-                        ' ("{long_name}") '
+                        ' (%s) '
                         ' ON DUPLICATE KEY UPDATE long_name=long_name'
-                        ';'.format(long_name = item['name']))
+                        ';',(item['name']))
+                vals = (
+                        item['itemid'],
+                        item['name'],
+                        item['wearable'],
+                        item['groupable'],
+                        item['takeable'],
+                        item['denizen'],
+                        item['container'],
+                        item['short_name'],
+                        item['lastroom'],
+                        '|'.join(item['areas']),
+                        )
                 cur.execute('INSERT into achaea.items '
                     '(itemid, name, wearable, groupable, takeable, '
                     'denizen,container,short_name,lastroom,areas) '
                     ' VALUES '
-                    ' ({itemid}, "{name}", {wearable}, {groupable}, '
-                    '  {takeable}, {denizen}, {container}, "{short_name}", '
-                    '  {lastroom}, "{areas}" ) '
+                    ' (%s, %s, %s, %s, '
+                    '  %s, %s, %s, %s, '
+                    "  %s, %s ) "
                     ' ON DUPLICATE KEY UPDATE '
                     ' name=name, wearable=wearable, groupable=groupable, '
                     ' takeable=takeable, denizen=denizen, container=container, '
                     ' short_name=values(short_name), lastroom=lastroom, areas=values(areas)'
-                    ';'.format(
-                        itemid=item['itemid'],
-                        name=item['name'],
-                        wearable=item['wearable'],
-                        groupable=item['groupable'],
-                        takeable=item['takeable'],
-                        denizen=item['denizen'],
-                        container=item['container'],
-                        short_name=item['short_name'],
-                        lastroom=item['lastroom'],
-                        areas=item['areas'],
-                        )
-                    )
+                    ';', vals)
         cur.close()
         db.commit()
         db.close()
@@ -123,13 +124,15 @@ class ItemMap(object):
         item = self.items[id]
         roomid = long(roomid)
         if roomarea not in self.items[id]['areas']:
-            item['areas'].append(item)
+            item['areas'].append(roomarea)
             item['updated'] = True
         item['lastroom'] = roomid
 
 
     def add(self, id, name, roomid, wearable, groupable, takeable, denizen, dead, 
         container, area, new=True):
+        if denizen and dead:
+            return
         id = long(id)
         if id not in self.items:
             self.items[id] = {

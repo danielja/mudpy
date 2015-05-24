@@ -100,10 +100,19 @@ def short_on(alias):
     global track_shortnames
     track_shortnames = True
 
+@room_aliases.exact(pattern="imap save", intercept=True)
+def isave(alias):
+    itemdata.write_to_db()
+
+@room_aliases.exact(pattern="imap load", intercept=True)
+def iload(alias):
+    itemdata.load()
+
 @room_aliases.exact(pattern="imap shortoff", intercept=True)
 def short_off(alias):
     global track_shortnames
     track_shortnames = False
+
 
 def update_room_contents(**kwargs):
     global track_shortnames

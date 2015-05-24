@@ -124,6 +124,48 @@ class Map(object):
     def save(self):
         self.write_to_db()
 
+    def path_to_area(self, start, area, blocked=[]):
+        print "find a path to a room"
+        start = long(start)
+        # maintain a queue of paths
+        queue = deque()
+        visited = set()
+
+        # scoping optimization tricks
+        q_append = queue.append
+        q_pop = queue.popleft
+        v_add = visited.add
+        matrix = self.matrix
+
+        # push the first path into the queue
+        q_append([start])
+
+        while queue:
+            # get the first path from the queue
+            path = q_pop()
+            # get the last node from the path
+            node = path[-1]
+
+            if (node in visited):
+                continue
+
+            # path found
+            if node in self.rooms and self.rooms[node]['area'] == area:
+                return Path(path, self)
+
+            v_add(node)
+
+            # enumerate all adjacent nodes, construct a new path and push it into the queue
+            if node in self.rooms:
+                for adjacent in self.rooms[node]['exits'].keys():
+                    if (adjacent not in blocked):
+                        new_path = path[:]
+                        new_path.append(adjacent)
+                        q_append(new_path)
+        echo("No path found")
+        return None
+
+
     def path_to_room(self, start, end, blocked=[]):
         print "find a path to a room"
         start = long(start)
@@ -206,7 +248,8 @@ class Map(object):
 
             # enumerate all adjacent nodes, construct a new path and push it into the queue
             for adjacent in self.rooms[node]['exits'].keys():
-                if (adjacent not in self.rooms) or (self.rooms[adjacent]['area'] == area):
+                if (((adjacent not in self.rooms) or (self.rooms[adjacent]['area'] == area))
+                        and (adjacent not in blocked)):
                     new_path = path[:]
                     new_path.append(adjacent)
                     q_append(new_path)
