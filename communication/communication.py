@@ -48,6 +48,7 @@ def pull_comms():
         update_time = True
     for res in allres:
         sage.echo(res['from_char'] + " said do " + res['message'])
+        sage.send(res['message'])
 
     if(update_time):
         last_pull_time = time.time()
@@ -75,9 +76,6 @@ def echo_comms(talker, channel, text, **kwargs):
     db.commit()
     db.close()
 
-    print time.time(), talker, ' said ' , text, ' over ', channel
-
-
 comms.connect(echo_comms)
 pull_comms()
 
@@ -87,12 +85,12 @@ comm_aliases  = aliases.create_group('comm', app='communication')
 @comm_aliases.startswith (pattern="comm do ", intercept=True)
 def comm_do(alias):
     global login_info
-    player = alias.line.split(' ')[2]
+    target = alias.line.split(' ')[2]
     text = alias.line.split(':')[1]
     db = mysql.connect(host=login_info[0], user=login_info[1],passwd=login_info[2],
             db='achaea',cursorclass=MySQLdb.cursors.DictCursor)
     cur=db.cursor()
-    query = (time.time(), player.name, player, text)
+    query = (time.time(), player.name, target, text)
     print query
     cur.execute('INSERT into achaea.messages_sent'
                 ' ( `time`, `from_char`, `to_char`, `message` ) '
