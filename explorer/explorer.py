@@ -40,6 +40,7 @@ class Explorer(object):
         self.path = None
         self.can_move = True
         self.canAttack = True
+        self.action_idle_wait = 0.5
         self.allies=[]
         self.took_items=[]
         self.cur_room=0
@@ -56,6 +57,7 @@ class Explorer(object):
         self.do_scope = True
         self.can_attack = True
         self.can_take_stuff = True
+        self.block_can_take_stuff = False
 
         with open('mapper/mysql.cfg') as f:
             self.login = [x.strip().split(':') for x in f.readlines()][0]
@@ -87,6 +89,7 @@ class Explorer(object):
     def other(self):
         #print self.times
         idle_time = self.times['time'] - self.times['last_action']
+        action_idle = self.times['time'] - self.times['last_action']
         idle_time = min(idle_time, self.times['time'] - self.times['last_room'])
         lagging = self.times['last_ping'] < self.times['last_action']
 
@@ -171,7 +174,8 @@ class Explorer(object):
             return
 
         do_move = ((self.state == State.EXPLORE or self.state == State.QUEST)
-                    and idle_time > 0.5 and not lagging and self.can_move)
+                    and idle_time > 0.5 and not lagging and self.can_move
+                    and action_idle > self.action_idle_wait)
         if self.path.step >= len(self.path.route):
             self.path = None
             return
@@ -179,7 +183,7 @@ class Explorer(object):
         if(player.room.id == self.path.route[self.path.step] and do_move):
             sage.send(self.path.directions[self.path.step])
             self.path.step = self.path.step+1
-            self.times['last_action'] = self.times['time']
+            #self.times['last_action'] = self.times['time']
             self.times['last_move'] = self.times['time']
 
     #only need to scope it out if we've just entered a room or something has changed
@@ -206,10 +210,11 @@ class Explorer(object):
             self.canAttack = True
 
         if just_entered and len(others_here) != 0:
-            #print 'people here'
+            print 'people here'
             self.canAttack = False
+            self.can_take_stuff = False
         elif just_entered:
-            self.can_take_stuff = True
+            self.can_take_stuff = not self.block_can_take_stuff
 
         if room_dps > self.my_hps * (1 + len(self.allies)):
             print 'dps too high'
@@ -318,22 +323,61 @@ def action_loop():
 xplr_triggers = triggers.create_group('xplr', app='explorer')
 xplr_aliases  = aliases.create_group('xplr', app='explorer')
 
+@xplr_aliases.exact(pattern="xplr help", intercept=True)
+def xplr_help(alias):
+    sage.echo("xplr Commands: ")
+    sage.echo("     start ")
+    sage.echo("     pause ")
+    sage.echo("     stop ")
+    sage.echo("     takeoff ")
+    sage.echo("     takeon ")
+    sage.echo("     loop ")
+    sage.echo("     ally <target> ")
+    sage.echo("     delay <target> ")
+    sage.echo("     add <target> ")
+
 @xplr_aliases.exact(pattern="xplr start", intercept=True)
 def xplr_start(alias):
     global do_loop
     do_loop = True
     action_loop()
 
+@xplr_aliases.exact(pattern="xplr pause", intercept=True)
+def xplr_pause(alias):
+    global do_loop
+    do_loop = False
+    explr.explore_loop=False
+
 @xplr_aliases.exact(pattern="xplr stop", intercept=True)
 def xplr_stop(alias):
     global do_loop
     do_loop = False
-    explr.explore_loop=True
+    explr.explore_loop=False
     explr.explore_area=[]
+
+@xplr_aliases.exact(pattern="xplr takeoff", intercept=True)
+def xplr_takeoff(alias):
+    explr.block_can_take_stuff = True
+
+@xplr_aliases.exact(pattern="xplr takeon", intercept=True)
+def xplr_takeon(alias):
+    explr.block_can_take_stuff = False
 
 @xplr_aliases.exact(pattern="xplr loop", intercept=True)
 def xplr_loop(alias):
     explr.explore_loop=True
+
+@xplr_aliases.startswith(pattern="xplr ally ", intercept=True)
+def xplr_ally(alias):
+    query = alias.line.split()[2]
+    explr.allies.append(query)
+    sage.send('ally %s' %query)
+
+@xplr_aliases.startswith(pattern="xplr delay ", intercept=True)
+def xplr_delay(alias):
+    query = alias.line.split()[2]
+    explr.action_idle_wait  = float(query)
+    sage.echo('setting delay to %s' %query)
 
 @xplr_aliases.startswith(pattern="xplr add ", intercept=True)
 def xplr_add(alias):
