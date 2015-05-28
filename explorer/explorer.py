@@ -62,6 +62,18 @@ class Explorer(object):
         with open('mapper/mysql.cfg') as f:
             self.login = [x.strip().split(':') for x in f.readlines()][0]
 
+    def clear(self):
+        self.cur_target = None
+        self.state = State.STOP
+        self.path = None
+        self.can_move = True
+        self.canAttack = True
+        self.took_items=[]
+        self.explore_area = []
+        self.explore_loop = False
+        self.visited = set()
+        self.blocked = []
+
     def connect(self, **kwargs):
         print "connected"
         #load character preferences from db:
@@ -362,6 +374,16 @@ def xplr_takeoff(alias):
 @xplr_aliases.exact(pattern="xplr takeon", intercept=True)
 def xplr_takeon(alias):
     explr.block_can_take_stuff = False
+
+@xplr_aliases.exact(pattern="xplr clear", intercept=True)
+def xplr_clear(alias):
+    explr.clear()
+
+@xplr_aliases.exact(pattern="xplr clear path", intercept=True)
+def xplr_clear_path(alias):
+    explr.explore_area = []
+    explr.path = None
+
 
 @xplr_aliases.exact(pattern="xplr loop", intercept=True)
 def xplr_loop(alias):
