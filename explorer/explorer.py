@@ -341,6 +341,8 @@ def xplr_help(alias):
     sage.echo("     start ")
     sage.echo("     pause ")
     sage.echo("     stop ")
+    sage.echo("     clear ")
+    sage.echo("     clear path ")
     sage.echo("     takeoff ")
     sage.echo("     takeon ")
     sage.echo("     loop ")
