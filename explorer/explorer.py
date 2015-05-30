@@ -82,7 +82,8 @@ class Explorer(object):
         #  healthshop, restroom, class skills, etc
 
     def skills_update(self, **kwargs):
-        print kwargs['skills']
+        #print kwargs['skills']
+        self.my_hps = 100
 
     def ping(self, **kwargs):
         self.times['last_ping'] = time.time()
@@ -113,7 +114,9 @@ class Explorer(object):
         if(idle_time > 10 and self.path is not None and self.state != State.REST):
             if(len(self.path.route) > self.path.step and
                     player.room.id != self.path.route[self.path.step]):
-                print "Blocking room ", self.path.route[self.path.step]
+                print ("Blocking room ", self.path.route[self.path.step],
+                        ", current room ", player.room.id,
+                        ", path: ", self.path)
                 self.blocked.append(self.path.route[self.path.step])
                 self.visited.add(self.path.route[self.path.step])
             self.path = None
@@ -173,7 +176,7 @@ class Explorer(object):
                             if self.path is None:
                                 self.unquest_items.append(item['itemid'])
                                 found_quest = False
-                            else:
+                            elif self.state == State.QUEST:
                                 break
             if not found_quest and len(self.explore_area) > 0:
                 self.state = State.EXPLORE
@@ -225,11 +228,11 @@ class Explorer(object):
         room_dps = len([iid for iid,item in player.room.items.iteritems() if item.denizen])
 
         if just_entered:
-            print 'just entered'
+            #print 'just entered'
             self.canAttack = True
 
         if just_entered and len(others_here) != 0:
-            print 'people here'
+            #print 'people here'
             self.canAttack = False
             self.can_take_stuff = False
         elif just_entered:
@@ -275,8 +278,9 @@ class Explorer(object):
                     target = long(command.split(' ')[2])
                     if target in room_items:
                         sage.send('give %s to %s' % (item['itemid'], target))
-                    else:
-                        self.unquest_items.append(item['itemid'])
+                    #else:
+                    #    print "Adding item to ignored list : ", target, room_items
+                    #    self.unquest_items.append(item['itemid'])
                     
             
         # Can we complete any quests in the current room
