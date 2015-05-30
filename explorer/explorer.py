@@ -43,6 +43,7 @@ class Explorer(object):
         self.action_idle_wait = 0.5
         self.allies=[]
         self.took_items=[]
+        self.unquest_items=[]
         self.cur_room=0
 
         self.my_hps=100
@@ -73,6 +74,7 @@ class Explorer(object):
         self.explore_loop = False
         self.visited = set()
         self.blocked = []
+        self.unquest_items=[]
 
     def connect(self, **kwargs):
         print "connected"
@@ -153,7 +155,8 @@ class Explorer(object):
         if find_new_quest:
             items = [self.imap.items[iid] for iid in player.inv.keys() if iid in self.imap.items]
             items = [item for item in items if item['quest_actions'] != ''
-                    and item['quest_actions'] is not None]
+                    and item['quest_actions'] is not None
+                    and item['itemid'] not in self.unquest_items]
             found_quest = False
             for item in items:
                 print "command: ", item['quest_actions']
@@ -167,7 +170,11 @@ class Explorer(object):
                             self.path = self.map.path_to_room(
                                 player.room.id, targ_item['lastroom'], self.blocked)
                             found_quest = True
-                            break
+                            if self.path is None:
+                                self.unquest_items.append(item['itemid'])
+                                found_quest = False
+                            else:
+                                break
             if not found_quest and len(self.explore_area) > 0:
                 self.state = State.EXPLORE
             
@@ -257,7 +264,8 @@ class Explorer(object):
 
         items = [self.imap.items[iid] for iid in player.inv.keys() if iid in self.imap.items]
         items = [item for item in items if item['quest_actions'] != ''
-                    and item['quest_actions'] is not None]
+                    and item['quest_actions'] is not None
+                    and item['itemid'] not in self.unquest_items]
         room_items = player.room.items.keys()
         for item in items:
             commands = item['quest_actions'].split(';')
@@ -267,6 +275,8 @@ class Explorer(object):
                     target = long(command.split(' ')[2])
                     if target in room_items:
                         sage.send('give %s to %s' % (item['itemid'], target))
+                    else:
+                        self.unquest_items.append(item['itemid'])
                     
             
         # Can we complete any quests in the current room
