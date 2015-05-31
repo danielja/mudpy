@@ -116,7 +116,7 @@ class Explorer(object):
                     player.room.id != self.path.route[self.path.step]):
                 print ("Blocking room ", self.path.route[self.path.step],
                         ", current room ", player.room.id,
-                        ", path: ", self.path)
+                        ", path: ", self.path.route)
                 self.blocked.append(self.path.route[self.path.step])
                 self.visited.add(self.path.route[self.path.step])
             self.path = None
@@ -435,6 +435,7 @@ def xplr_add(alias):
 @xplr_aliases.exact(pattern="thing1", intercept=True)
 def dothing1(alias):
     explr.path=None
+    explr.times['last_action'] = time.time()
     explr.explore_area=[]
     explr.state = State.EXPLORE
     explr.explore_area.append(player.room.area)
