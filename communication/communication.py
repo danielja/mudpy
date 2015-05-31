@@ -18,9 +18,14 @@ from sage.signals.gmcp import room, room_changed, room_items, room_add_item, roo
 from sage.signals.gmcp import room_add_player, room_remove_player, room_players
 from sage.signals.gmcp import comms
 
+
+from mapper.mapper import itemdata
+
 login_info = None
 last_pull_time = time.time()
 do_pull = True
+inames = [item['name'] for item in itemdata.items.values() if 'name' in item]
+
 with open('mapper/mysql.cfg') as f:
       login_info = [x.strip().split(':') for x in f.readlines()][0]
 
@@ -63,17 +68,18 @@ def pull_comms():
 
 def echo_comms(talker, channel, text, **kwargs):
     global login_info
+    global inames
     db = mysql.connect(host=login_info[0], user=login_info[1],passwd=login_info[2],
             db='achaea',cursorclass=MySQLdb.cursors.DictCursor)
     cur=db.cursor()
     query = (time.time(), player.name, talker, channel, text)
-    print query
-    cur.execute('INSERT into achaea.messages_heard '
-                ' ( `time`, `char`, `talker`, `channel`, `message` ) '
-                ' VALUES '
-                ' (%s, %s, %s, %s, %s) ;', query)
-    cur.close()
-    db.commit()
+    if talker not in inames and talker != 'You':
+        cur.execute('INSERT into achaea.messages_heard '
+                    ' ( `time`, `char`, `talker`, `channel`, `message` ) '
+                    ' VALUES '
+                    ' (%s, %s, %s, %s, %s) ;', query)
+        cur.close()
+        db.commit()
     db.close()
 
 comms.connect(echo_comms)
