@@ -255,6 +255,9 @@ class Explorer(object):
                 if item['takeable'] and item['itemid'] not in self.took_items and self.can_move:
                     sage.send('take %s' % item['itemid'])
                     self.took_items.append(item['itemid'])
+                if player.room.items[item['itemid']].dead:
+                    sage.send('take %s' % item['itemid'])
+                    self.took_items.append(item['itemid'])
         
         #figure out if we should take any actions
         # did we just get here, has anything been added
