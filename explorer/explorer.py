@@ -119,6 +119,7 @@ class Explorer(object):
                         ", path: ", self.path.route)
                 self.blocked.append(self.path.route[self.path.step])
                 self.visited.add(self.path.route[self.path.step])
+                self.times['last_action'] = time.time()
             self.path = None
 
         go_to_rest = ((self.state != State.REST) and
