@@ -20,6 +20,7 @@ from sage.signals.gmcp import comms
 
 
 from mapper.mapper import itemdata
+inames = [item['name'].lower() for item in itemdata.items.values() if 'name' in item]
 
 login_info = None
 last_pull_time = time.time()
