@@ -24,7 +24,8 @@ from mapper.mapper import itemdata
 login_info = None
 last_pull_time = time.time()
 do_pull = True
-inames = [item['name'] for item in itemdata.items.values() if 'name' in item]
+inames = [item['name'].lower() for item in itemdata.items.values() if 'name' in item]
+print inames
 
 with open('mapper/mysql.cfg') as f:
       login_info = [x.strip().split(':') for x in f.readlines()][0]
@@ -73,7 +74,7 @@ def echo_comms(talker, channel, text, **kwargs):
             db='achaea',cursorclass=MySQLdb.cursors.DictCursor)
     cur=db.cursor()
     query = (time.time(), player.name, talker, channel, text)
-    if talker not in inames and talker != 'You':
+    if talker.lower() not in inames and talker != 'You':
         cur.execute('INSERT into achaea.messages_heard '
                     ' ( `time`, `char`, `talker`, `channel`, `message` ) '
                     ' VALUES '
