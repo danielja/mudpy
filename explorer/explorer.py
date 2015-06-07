@@ -5,6 +5,9 @@ import mapper
 import re
 import pprint
 
+import MySQLdb as mysql
+import MySQLdb.cursors
+
 from sage import echo
 
 
@@ -62,6 +65,19 @@ class Explorer(object):
 
         with open('mapper/mysql.cfg') as f:
             self.login = [x.strip().split(':') for x in f.readlines()][0]
+
+        self.load_allies()
+
+
+    def load_allies(self):
+        db = mysql.connect(host=self.login[0], user=self.login[1],passwd=self.login[2],
+            db='achaea')
+        cur=db.cursor()
+        cur.execute('select `ally` from achaea.allies')
+        allres = cur.fetchall()
+        for ally in allres:
+            self.allies.append(ally[0].lower())
+        print "Allies: ", self.allies
 
     def clear(self):
         self.cur_target = None
@@ -313,6 +329,11 @@ class Explorer(object):
 
         if not self.cur_target or self.cur_target not in player.room.items.keys():
             self.cur_target = to_attack[0]['itemid']
+            sage.send('st %s' % self.cur_target)
+
+        from skills.skills import smap
+        smap.use_br(target=self.cur_target)
+
         if has_balance and not is_hindered:
             sage.send('kill %s' % self.cur_target)
             self.times['last_action'] = time.time()
@@ -411,7 +432,7 @@ def xplr_loop(alias):
 
 @xplr_aliases.startswith(pattern="xplr ally ", intercept=True)
 def xplr_ally(alias):
-    query = alias.line.split()[2]
+    query = alias.line.split()[2].lower()
     explr.allies.append(query)
     sage.send('ally %s' %query)
 

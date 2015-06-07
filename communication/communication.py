@@ -25,7 +25,6 @@ inames = [item['name'].lower() for item in itemdata.items.values() if 'name' in 
 login_info = None
 last_pull_time = time.time()
 do_pull = True
-print inames
 
 with open('mapper/mysql.cfg') as f:
       login_info = [x.strip().split(':') for x in f.readlines()][0]
@@ -77,7 +76,6 @@ def echo_comms(talker, channel, text, **kwargs):
     if(len(inames) == 0):
         from mapper.mapper import itemdata
         inames = [item['name'].lower() for item in itemdata.items.values() if 'name' in item]
-        print inames
 
     if talker.lower() not in inames and talker != 'You':
         cur.execute('INSERT into achaea.messages_heard '
