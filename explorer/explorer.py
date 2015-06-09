@@ -335,7 +335,12 @@ class Explorer(object):
         smap.use_br(target=self.cur_target)
 
         if has_balance and not is_hindered:
-            sage.send('kill %s' % self.cur_target)
+            if(player.combatclass.lower() == 'shaman') and (smap.swiftcurses < 2):
+                sage.send('swiftcurse')
+            elif (player.combatclass.lower() == 'shaman'):
+                sage.send('swiftcurse %s bleed' % self.cur_target)
+            else:
+                sage.send('kill %s' % self.cur_target)
             self.times['last_action'] = time.time()
 
             

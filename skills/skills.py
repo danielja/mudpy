@@ -18,6 +18,7 @@ class SkillMap(object):
         self.new_skills=[]
         self.br_avail=[]
         self.last_action=0
+        self.swiftcurses=0
 
         with open('mapper/mysql.cfg') as f:
             self.login = [x.strip().split(':') for x in f.readlines()][0]
@@ -134,4 +135,14 @@ def enable_br_init(trigger):
 @skill_triggers.regex("^Your rage fades away.",enabled=True)
 def rage_fade(trigger):
     smap.br_avail = []
+
+@skill_triggers.regex("^The swiftcurse is empowered with another ([0-9]*) curses.$",enabled=True)
+def swiftcurse_tracker(trigger):
+    smap.swiftcurses = int(trigger.groups[0])
+
+@skill_triggers.regex("^You weave your fingers together, calling upon the swiftcurse to aid you.$",enabled=True)
+def swiftcurse_tracker1(trigger):
+    smap.swiftcurses = 10
+
+
 
