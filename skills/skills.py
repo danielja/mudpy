@@ -39,24 +39,19 @@ class SkillMap(object):
         if time.time() - self.last_action < 2:
             return
         for ab in self.br_avail:
-            entry = self.all_skills['battlerage'][ab]
-            syntax = entry['syntax']
-            if syntax:
-                syntax.replace("<target>", str(target))
-                syntax.replace("<ally>", str(ally))
-                sage.send(syntax)
-                self.last_action=time.time()
-                self.br_avail.remove(ab)
-                return
-
-    def get_avail_br(self):
-        res = []
-        for br in self.br_avail:
-            entry = self.all_skills['battlerage'][br]
-            if entry['other'] and (entry['other'] == 'dmg'):
-                res.append(entry['syntax'])
-
-            
+            if ab in self.all_skills['battlerage']:
+                entry = self.all_skills['battlerage'][ab]
+                syntax = entry['syntax']
+                if syntax:
+                    syntax.replace("<target>", str(target))
+                    syntax.replace("<ally>", str(ally))
+                    sage.send(syntax)
+                    self.last_action=time.time()
+                    self.br_avail.remove(ab)
+                    return
+            else:
+                print ab
+                print self.all_skills['battlerage'].keys()
 
     def load(self):
         print "loading skillmap"
@@ -125,7 +120,6 @@ def savestuff(alias):
 @skill_triggers.regex("^You can use ([A-Za-z]+) again.",enabled=True)
 def enable_br(trigger):
     ab = trigger.groups[0].lower()
-    print smap.all_skills['battlerage'][ab]['syntax']
     if ab not in smap.br_avail:
         smap.br_avail.append(ab)
 
@@ -138,6 +132,6 @@ def enable_br_init(trigger):
 
 
 @skill_triggers.regex("^Your rage fades away.",enabled=True)
-def enable_br(trigger):
+def rage_fade(trigger):
     smap.br_avail = []
 
