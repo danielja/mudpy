@@ -134,7 +134,7 @@ def enable_br(trigger):
 
 @skill_triggers.regex("^\[Rage\]: \+[0-9.]+ Total: [0-9.]+ Now Available: (.*)",enabled=True)
 def enable_br_init(trigger):
-    all_ab = trigger.groups[0].lower().split(",").strip()
+    all_ab = trigger.groups[0].lower().split(",")
     all_ab = [entry.strip() for entry in all_ab]
     for ab in all_ab:
         if ab not in smap.br_avail:
