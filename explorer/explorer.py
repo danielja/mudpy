@@ -347,7 +347,7 @@ class Explorer(object):
             
     def shield(self, target):
         if ((self.cur_target in self.imap.items) and
-                (self.imap.items[self.cur_target]['name'].lower == target)):
+                (self.imap.items[self.cur_target]['name'].lower() == target)):
             self.break_shield = True
 
 
