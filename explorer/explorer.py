@@ -37,6 +37,7 @@ class Explorer(object):
 
         from mapper.mapper import mapdata, itemdata
         self.cur_target = None
+        self.break_shield = False
         self.map = mapdata
         self.imap = itemdata
         self.state = State.STOP
@@ -67,7 +68,6 @@ class Explorer(object):
             self.login = [x.strip().split(':') for x in f.readlines()][0]
 
         self.load_allies()
-
 
     def load_allies(self):
         db = mysql.connect(host=self.login[0], user=self.login[1],passwd=self.login[2],
@@ -332,7 +332,8 @@ class Explorer(object):
             sage.send('st %s' % self.cur_target)
 
         from skills.skills import smap
-        smap.use_br(target=self.cur_target)
+        if smap.use_br(target=self.cur_target, shield=self.break_shield):
+            self.break_shield = False
 
         if has_balance and not is_hindered:
             if(player.combatclass.lower() == 'shaman') and (smap.swiftcurses < 2):
@@ -344,6 +345,11 @@ class Explorer(object):
             self.times['last_action'] = time.time()
 
             
+    def shield(self, target):
+        if ((self.cur_target in self.imap.items) and
+                (self.imap.items[self.cur_target]['name'].lower == target)):
+            self.break_shield = True
+
 
             
 
@@ -378,6 +384,10 @@ def action_loop():
 
 xplr_triggers = triggers.create_group('xplr', app='explorer')
 xplr_aliases  = aliases.create_group('xplr', app='explorer')
+
+@xplr_triggers.regex('^A nearly invisible magical shield forms around (.*).', enabled=True)
+def xplr_shld(trigger):
+    explr.shield(trigger.groups[0].lower())
 
 @xplr_aliases.exact(pattern="xplr help", intercept=True)
 def xplr_help(alias):
