@@ -40,24 +40,26 @@ class SkillMap(object):
         if time.time() - self.last_action < 2:
             return False
         for ab in self.br_avail:
+            ab = ab.strip()
             if ab in self.all_skills['battlerage']:
                 entry = self.all_skills['battlerage'][ab]
                 syntax = entry['syntax']
-                syntax = 'dmg' in entry['other']
-                if shld:
-                    syntax = 'shld' in entry['other']
-                if syntax:
+                can_use = entry['other'] and 'dmg' in entry['other']
+                if shield:
+                    can_use = entry['other'] and 'shld' in entry['other']
+                if syntax and can_use:
                     syntax.replace("<target>", str(target))
                     syntax.replace("<ally>", str(ally))
                     sage.send(syntax)
                     self.last_action=time.time()
                     self.br_avail.remove(ab)
-                    if shld:
+                    if shield:
                         return True
                     return False
             else:
                 print ab
                 print self.all_skills['battlerage'].keys()
+                print ab in self.all_skills['battlerage'].keys()
                 return False
 
     def load(self):
