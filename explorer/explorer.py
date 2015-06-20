@@ -397,6 +397,7 @@ def xplr_help(alias):
     sage.echo("     stop ")
     sage.echo("     clear ")
     sage.echo("     clear path ")
+    sage.echo("     vpath")
     sage.echo("     takeoff ")
     sage.echo("     takeon ")
     sage.echo("     loop ")
@@ -431,6 +432,10 @@ def xplr_takeoff(alias):
 def xplr_takeon(alias):
     explr.block_can_take_stuff = False
 
+@xplr_aliases.exact(pattern="xplr vpath", intercept=True)
+def xplr_view_path(alias):
+    sage.echo(explr.explore_area)
+
 @xplr_aliases.exact(pattern="xplr clear", intercept=True)
 def xplr_clear(alias):
     explr.clear()
@@ -443,22 +448,26 @@ def xplr_clear_path(alias):
 
 @xplr_aliases.exact(pattern="xplr loop", intercept=True)
 def xplr_loop(alias):
+    explr.times['last_action'] = time.time()
     explr.explore_loop=True
 
 @xplr_aliases.startswith(pattern="xplr ally ", intercept=True)
 def xplr_ally(alias):
+    explr.times['last_action'] = time.time()
     query = alias.line.split()[2].lower()
     explr.allies.append(query)
     sage.send('ally %s' %query)
 
 @xplr_aliases.startswith(pattern="xplr delay ", intercept=True)
 def xplr_delay(alias):
+    explr.times['last_action'] = time.time()
     query = alias.line.split()[2]
     explr.action_idle_wait  = float(query)
     sage.echo('setting delay to %s' %query)
 
 @xplr_aliases.startswith(pattern="xplr add ", intercept=True)
 def xplr_add(alias):
+    explr.times['last_action'] = time.time()
     query = alias.line.split()[2]
     sage.echo("Searching for area: %s " % query)
     areas = set([room['area'] for room in explr.map.rooms.values()])
@@ -483,6 +492,7 @@ def dothing1(alias):
 @xplr_aliases.exact(pattern="thing2", intercept=True)
 def dothing2(alias):
     explr.path=None
+    explr.times['last_action'] = time.time()
     explr.state = State.QUEST
     explr.explore_area.append(player.room.area)
 
