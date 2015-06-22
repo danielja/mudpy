@@ -27,7 +27,7 @@ class State:
     STOP = 0
     EXPLORE = 1
     QUEST = 2
-    REST = 2
+    REST = 3
 
 class Explorer(object):
 
@@ -138,8 +138,39 @@ class Explorer(object):
                 self.times['last_action'] = time.time()
             self.path = None
 
+        min_will = 500
+        max_will = player.willpower.max
+        do_rest = ((self.state != State.REST) and
+                ((player.willpower.value < (min_will+max_will/10)) 
+                    or (player.endurance.value < min_will+max_will/10))
+                and (player.room.id == 6838))
+
+        if do_rest:
+            sage.echo("Setting the state to be rest")
+            self.path = None
+            self.state = State.REST
+            self.times['last_action'] = time.time()
+            if player.willpower.value < player.endurance.value:
+                sage.send('meditate')
+            else:
+                sage.send('sleep')
+
+        end_rest = ((self.state == State.REST) and
+                ((player.willpower.value >= min(max_will, player.willpower.max)) 
+                    and (player.endurance.value >= min(max_will, player.endurance.max)))
+                and (player.room.id == 6838))
+
+        if end_rest:
+            sage.echo("Done resting!")
+            self.state = State.EXPLORE
+            self.times['last_action'] = time.time()
+            if(len(self.explore_area) > 0):
+                self.path = self.map.path_to_area( player.room.id,
+                    self.explore_area[0], self.blocked)
+
+
         go_to_rest = ((self.state != State.REST) and
-                ((player.willpower.value < 200) or (player.endurance.value < 200)))
+                ((player.willpower.value < min_will) or (player.endurance.value < min_will)))
 
         find_new_quest = ((self.state == State.QUEST) and
                 ((self.path is None) or (self.path.route[-1] == player.room.id)))
@@ -151,6 +182,8 @@ class Explorer(object):
         #print find_new_room, self.state, self.path, self.explore_area
 
         if go_to_rest:
+            sage.echo("Setting the state to be quest to walk to sleepzone")
+            self.state = State.QUEST
             self.path = self.map.path_to_room( player.room.id, 6838, self.blocked)
             find_new_quest = find_new_room = False
 
@@ -264,13 +297,16 @@ class Explorer(object):
         items = [self.imap.items[iid] for iid in player.room.items.keys() if iid in self.imap.items]
         is_hindered = 'webbed' in player.afflictions or 'paralyzed' in player.afflictions
         has_balance = player.balance.is_on() and player.equilibrium.is_on()
+        lagging = self.times['last_action'] > self.times['last_ping']
 
         self.can_move = not is_hindered and has_balance 
 
-        if self.can_take_stuff:
+        if not lagging and self.can_take_stuff:
             for item in items:
-                if item['takeable'] and item['itemid'] not in self.took_items and self.can_move:
+                if item['takeable'] and ((item['itemid'] not in self.took_items) or 'gold' in item['name']) and self.can_move:
                     sage.send('take %s' % item['itemid'])
+                    if 'gold' in item['name']:
+                        sage.send('pg')
                     self.took_items.append(item['itemid'])
                 if player.room.items[item['itemid']].dead:
                     sage.send('take %s' % item['itemid'])
@@ -407,6 +443,7 @@ def xplr_help(alias):
 
 @xplr_aliases.exact(pattern="xplr start", intercept=True)
 def xplr_start(alias):
+    explr.state = State.EXPLORE
     global do_loop
     do_loop = True
     action_loop()
@@ -468,7 +505,7 @@ def xplr_delay(alias):
 @xplr_aliases.startswith(pattern="xplr add ", intercept=True)
 def xplr_add(alias):
     explr.times['last_action'] = time.time()
-    query = alias.line.split()[2]
+    query = ' '.join(alias.line.split()[2:])
     sage.echo("Searching for area: %s " % query)
     areas = set([room['area'] for room in explr.map.rooms.values()])
     matches = [area for area in areas if query.lower() in area.lower()]
