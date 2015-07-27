@@ -48,6 +48,9 @@ class ItemMap(object):
         allres = cur.fetchall()
 
         for res in allres:
+            res['classified'] = res['classified'] if res['classified'] is not None else ''
+            res['quest_actions'] = res['quest_actions'] if res['quest_actions'] is not None else ''
+            res['room_actions'] = res['room_actions'] if res['room_actions'] is not None else ''
             if res['itemid'] != 0:
                 self.items[res['itemid']]['classified'] = res['classified']
                 self.items[res['itemid']]['quest_actions'] = res['quest_actions']
@@ -134,7 +137,8 @@ class ItemMap(object):
         if denizen and dead:
             return
         id = long(id)
-        if id not in self.items:
+        if (id not in self.items
+                or name != self.items[id]['name']):
             self.items[id] = {
                 'itemid':id,
                 'name':name,

@@ -20,7 +20,10 @@ def add_items(**kwargs):
         room = kwargs['room']
         for iid,item in room.items.iteritems():
             item_new = False
-            if long(iid) not in itemdata.items:
+            if (long(iid) not in itemdata.items
+                    or item.name != itemdata.items[long(iid)]['name']):
+                if item.denizen and item.dead:
+                    continue
                 item_new = True
                 itemdata.add(
                     long(iid),
@@ -41,6 +44,8 @@ def add_items(**kwargs):
         item = kwargs['item']
         if long(item.id) not in itemdata.items:
             item_new = True
+            if item.denizen and item.dead:
+                return
             itemdata.add(
                 long(item.id),
                 item.name,

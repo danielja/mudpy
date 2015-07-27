@@ -30,8 +30,10 @@ class SkillMap(object):
             if skill not in self.skills:
                 print skill
                 self.skills[skill] = ablist
+                idx = 1
                 for ab in ablist:
-                    self.new_skills.append((skill, ab))
+                    self.new_skills.append((skill, ab, idx))
+                    idx = idx+1
             for ab in ablist:
                 if ab not in self.skills[skill]:
                     print '\t', ab
@@ -68,7 +70,7 @@ class SkillMap(object):
                 db='achaea',cursorclass=MySQLdb.cursors.DictCursor)
         cur=db.cursor()
         cur.execute(
-                'SELECT `skill`, `ability`, `syntax`, `other` ' #`afflictions`,'
+                'SELECT `skill`, `ability`, `syntax`, `other`,`idx` ' #`afflictions`,'
                 #' `heals`, `requires`, `require`, `other` '
                 ' from achaea.skills'
                 )
@@ -91,13 +93,13 @@ class SkillMap(object):
                 db='achaea',cursorclass=MySQLdb.cursors.DictCursor)
         cur=db.cursor()
 
-        for skill,ability in self.new_skills:
+        for skill,ability,idx in self.new_skills:
             cur.execute('INSERT into achaea.skills'
-                ' (skill,ability) '
+                ' (skill,ability,idx) '
                 ' VALUES '
-                ' (%s, %s) '
-                ' ON DUPLICATE KEY UPDATE skill=skill'
-                ';',(skill, ability))
+                ' (%s, %s, %s) '
+                ' ON DUPLICATE KEY UPDATE skill=skill, idx=values(idx)'
+                ';',(skill, ability,idx))
         cur.close()
         db.commit()
         db.close()

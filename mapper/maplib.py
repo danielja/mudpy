@@ -107,6 +107,18 @@ class Map(object):
                 'details': details,
                 'updated': True
                 }
+        to_remove = []
+        updated_exit_list = [x[0] for x in exits.items()]
+        for targroom, val in self.rooms[id]['exits'].iteritems():
+            if targroom not in updated_exit_list:
+                to_remove.append(targroom)
+            elif val['direction'] != exits[targroom]:
+                to_remove.append(targroom)
+
+        for removeid in to_remove:
+            print 'removing room because exits changed!'
+            del self.rooms[id]['exits'][removeid]
+
         for targroom, direction in exits.items():
             targroom = long(targroom)
             if targroom not in self.rooms[id]['exits']:
@@ -117,6 +129,9 @@ class Map(object):
                         'target_roomid' : targroom,
                         'requires' : ''
                         }
+
+
+
         if self.rooms[id]['updated']:
             self.new += 1
 

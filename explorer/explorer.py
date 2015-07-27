@@ -28,6 +28,7 @@ class State:
     EXPLORE = 1
     QUEST = 2
     REST = 3
+    RETREAT = 4
 
 class Explorer(object):
 
@@ -36,6 +37,8 @@ class Explorer(object):
         #keep track of available attack abilities
 
         from mapper.mapper import mapdata, itemdata
+        from health_tracker.health_tracker import tracker
+        self.pre_state = State.STOP
         self.cur_target = None
         self.break_shield = False
         self.map = mapdata
@@ -49,6 +52,8 @@ class Explorer(object):
         self.took_items=[]
         self.unquest_items=[]
         self.cur_room=0
+        self.last_move=''
+        self.to_attack = []
 
         self.my_hps=100
 
@@ -56,9 +61,12 @@ class Explorer(object):
         self.explore_loop=False
 
         self.visited = set()
+        self.visited_order= []
         self.blocked= []
+        self.htracker = tracker
 
-        self.times = {'last_room':0, 'last_scope':0, 'time':0, 'last_action': 0, 'last_ping' : 0}
+        self.times = {'last_room':0, 'last_scope':0, 'time':0, 'last_action': 0, 'last_ping' : 0,
+                'entered' : 0}
         self.do_scope = True
         self.can_attack = True
         self.can_take_stuff = True
@@ -89,6 +97,7 @@ class Explorer(object):
         self.explore_area = []
         self.explore_loop = False
         self.visited = set()
+        self.visited_order = []
         self.blocked = []
         self.unquest_items=[]
 
@@ -108,6 +117,11 @@ class Explorer(object):
         self.do_scope = True
         self.times['last_ping'] = time.time()
         self.times['last_room'] = time.time()
+        if self.state != State.RETREAT:
+            if len(self.visited_order) == 0 or self.visited_order[-1] != player.room.id:
+                self.visited_order.append(player.room.id)
+            if len(self.visited_order) > 100:
+                self.visited_order.pop(0)
         if self.state == State.EXPLORE:
             self.visited.add(long(player.room.id))
 
@@ -123,16 +137,25 @@ class Explorer(object):
         action_idle = self.times['time'] - self.times['last_action']
         idle_time = min(idle_time, self.times['time'] - self.times['last_room'])
         lagging = self.times['last_ping'] < self.times['last_action']
+        healthy = (player.health.value > player.health.max*.99
+                    and player.mana.value > player.mana.max*.9)
 
         if self.path is not None and len(self.path.route) < self.path.step:
+            self.path = None
+
+        if (self.htracker.health < 1.5* self.htracker.ema_health_loss and
+                self.state != State.RETREAT and not healthy):
+            sage.echo("Retreat!")
+            self.pre_state = self.state
+            self.state = State.RETREAT
             self.path = None
 
         if(idle_time > 10 and self.path is not None and self.state != State.REST):
             if(len(self.path.route) > self.path.step and
                     player.room.id != self.path.route[self.path.step]):
-                print ("Blocking room ", self.path.route[self.path.step],
-                        ", current room ", player.room.id,
-                        ", path: ", self.path.route)
+                sage.echo("Blocking room %s"
+                        ", current room %s"
+                        ", path: %s"%( self.path.route[self.path.step], player.room.id,self.path.route))
                 self.blocked.append(self.path.route[self.path.step])
                 self.visited.add(self.path.route[self.path.step])
                 self.times['last_action'] = time.time()
@@ -150,6 +173,13 @@ class Explorer(object):
             self.path = None
             self.state = State.REST
             self.times['last_action'] = time.time()
+            vial_triggers('vial_empty').enable()
+            vial_triggers('vial_stat').enable()
+            sage.send('consolidate health')
+            sage.send('consolidate mana')
+            sage.send('elixsum health')
+            sage.send('elixsum mana')
+            sage.send('elixlist empty')
             if player.willpower.value < player.endurance.value:
                 sage.send('meditate')
             else:
@@ -169,7 +199,7 @@ class Explorer(object):
                     self.explore_area[0], self.blocked)
 
 
-        go_to_rest = ((self.state != State.REST) and
+        go_to_rest = ((self.state != State.REST) and (self.state != State.QUEST) and
                 ((player.willpower.value < min_will) or (player.endurance.value < min_will)))
 
         find_new_quest = ((self.state == State.QUEST) and
@@ -186,6 +216,22 @@ class Explorer(object):
             self.state = State.QUEST
             self.path = self.map.path_to_room( player.room.id, 6838, self.blocked)
             find_new_quest = find_new_room = False
+
+        if (self.state == State.RETREAT) and (len(self.visited_order) > 1):
+            if (player.health.value > player.health.max*.99
+                    and player.mana.value > player.mana.max*.9):
+                self.times['last_action'] = time.time()
+                sage.echo("Done with retreat!")
+                self.state = self.pre_state
+            if ((player.room.id == self.visited_order[-1]) and (idle_time > 0.5) and
+                    (len(self.to_attack) > 0) and self.path == None):
+                self.visited_order.pop()
+                self.visited.remove(self.visited_order[-1])
+                self.path = self.map.path_to_room( player.room.id, self.visited_order[-1],
+                        self.blocked)
+                sage.echo("Moving to retreat room")
+                sage.echo(self.path.route)
+
 
         if find_new_room:
             self.visited.add(player.room.id)
@@ -245,7 +291,8 @@ class Explorer(object):
             self.path.step = self.path.step+1
             return
 
-        do_move = ((self.state == State.EXPLORE or self.state == State.QUEST)
+        do_move = ((self.state == State.EXPLORE or self.state == State.QUEST
+            or self.state == State.RETREAT)
                     and idle_time > 0.5 and not lagging and self.can_move
                     and action_idle > self.action_idle_wait)
         if self.path.step >= len(self.path.route):
@@ -254,6 +301,7 @@ class Explorer(object):
 
         if(player.room.id == self.path.route[self.path.step] and do_move):
             sage.send(self.path.directions[self.path.step])
+            self.last_move = self.path.directions[self.path.step]
             self.path.step = self.path.step+1
             #self.times['last_action'] = self.times['time']
             self.times['last_move'] = self.times['time']
@@ -266,9 +314,10 @@ class Explorer(object):
         self.do_scope=False
         just_entered = False
 
-        if player.room.id != self.cur_room:
+        if (player.room.id != self.cur_room) or (time.time() - self.times['entered'] < 0.5):
             self.cur_room = player.room.id
             just_entered = True
+            self.times['entered'] = time.time()
         just_entered = just_entered and (self.times['last_room'] > self.times['last_scope'])
 
         others_here = [p.lower() for p in player.room.players]
@@ -282,7 +331,7 @@ class Explorer(object):
             self.canAttack = True
 
         if just_entered and len(others_here) != 0:
-            #print 'people here'
+            print 'people here'
             self.canAttack = False
             self.can_take_stuff = False
         elif just_entered:
@@ -298,12 +347,20 @@ class Explorer(object):
         is_hindered = 'webbed' in player.afflictions or 'paralyzed' in player.afflictions
         has_balance = player.balance.is_on() and player.equilibrium.is_on()
         lagging = self.times['last_action'] > self.times['last_ping']
+        time_since_action = time.time() - self.times['last_action']
 
         self.can_move = not is_hindered and has_balance 
 
-        if not lagging and self.can_take_stuff:
+        if not lagging and self.can_take_stuff and time_since_action > 0.5:
             for item in items:
-                if item['takeable'] and ((item['itemid'] not in self.took_items) or 'gold' in item['name']) and self.can_move:
+                if (not ('takeable' in item.keys() and 'itemid' in item.keys()
+                        and 'quest_actions' in item.keys() and 'classified' in item.keys()) or
+                        (item['takeable'] is None or item['itemid'] is None or item['quest_actions'] is None
+                            or item['classified'] is None)):
+                    print item
+                    continue
+                if (item['takeable'] and ((item['itemid'] not in self.took_items) or 'some gold sovereigns' in item['name'])
+                        and self.can_move and ('some gold sovereigns' in item['name'] or len(item['quest_actions']) > 1 or len(item['classified']) > 1)):
                     sage.send('take %s' % item['itemid'])
                     if 'gold' in item['name']:
                         sage.send('pg')
@@ -359,8 +416,10 @@ class Explorer(object):
 
         to_attack = [item for item in items if item['classified'] and 'kill' in item['classified']]
         lagging = self.times['last_action'] > self.times['last_ping']
+        self.to_attack = to_attack
 
-        if len(to_attack) == 0 or self.canAttack == False or lagging or self.state == State.QUEST:
+        if (len(to_attack) == 0 or self.canAttack == False or lagging or self.state == State.QUEST
+                or self.state == State.RETREAT):
             return
 
         if not self.cur_target or self.cur_target not in player.room.items.keys():
@@ -420,10 +479,21 @@ def action_loop():
 
 xplr_triggers = triggers.create_group('xplr', app='explorer')
 xplr_aliases  = aliases.create_group('xplr', app='explorer')
+vial_triggers = triggers.create_group('vials', app='explorer')
 
 @xplr_triggers.regex('^A nearly invisible magical shield forms around (.*).', enabled=True)
 def xplr_shld(trigger):
     explr.shield(trigger.groups[0].lower())
+
+@vial_triggers.regex('^an elixir of (health|mana)[ ]+([0-9]*).*$', enabled=False)
+def vial_stat(trigger):
+    sage.echo(trigger.groups[0])
+    sage.echo(trigger.groups[1])
+#    explr.vial('health', trigger.groups[0].lower())
+
+@vial_triggers.regex('^[A-Z][a-z]+ vial[0-9]+[ ]+empty.*$', enabled=False)
+def vial_empty(trigger):
+    sage.echo('empty')
 
 @xplr_aliases.exact(pattern="xplr help", intercept=True)
 def xplr_help(alias):
@@ -444,6 +514,7 @@ def xplr_help(alias):
 @xplr_aliases.exact(pattern="xplr start", intercept=True)
 def xplr_start(alias):
     explr.state = State.EXPLORE
+    explr.path = None
     global do_loop
     do_loop = True
     action_loop()
@@ -541,6 +612,7 @@ ping.connect(explr.ping)
 room.connect(explr.room_updated)
 room_add_item.connect(explr.room_updated)
 room_add_player.connect(explr.room_updated)
+room_players.connect(explr.room_updated)
 room_remove_item.connect(explr.room_updated)
 room_remove_player.connect(explr.room_updated)
 skills.connect(explr.skills_update)
