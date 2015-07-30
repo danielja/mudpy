@@ -183,7 +183,8 @@ class Explorer(object):
         if self.path is not None and len(self.path.route) < self.path.step:
             self.path = None
 
-        if (self.htracker.health < 1.5* self.htracker.ema_health_loss and
+        if ((self.htracker.health < 1.5* self.htracker.ema_health_loss
+             or self.htracker.mana < 200) and
                 self.state != State.RETREAT and not healthy):
             sage.echo("Retreat!")
             self.pre_state = self.state
@@ -263,7 +264,7 @@ class Explorer(object):
             find_new_quest = find_new_room = False
 
         if (self.state == State.RETREAT) and (len(self.visited_order) > 1):
-            if (player.health.value > player.health.max*.99
+            if (player.health.value > player.health.max*.9
                     and player.mana.value > player.mana.max*.9):
                 self.times['last_action'] = time.time()
                 sage.echo("Done with retreat!")
@@ -480,6 +481,8 @@ class Explorer(object):
                 sage.send('swiftcurse')
             elif (player.combatclass.lower() == 'shaman'):
                 sage.send('swiftcurse %s bleed' % self.cur_target)
+            elif (player.combatclass.lower() == 'magi' and player.mana.value < 1000):
+                sage.send('punch %s' % self.cur_target)
             else:
                 sage.send('kill %s' % self.cur_target)
             self.times['last_action'] = time.time()
