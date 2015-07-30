@@ -137,6 +137,8 @@ class ItemMap(object):
         if denizen and dead:
             return
         id = long(id)
+        if (id in self.items and name != self.items[id]['name']):
+            print name, self.items[id]['name']
         if (id not in self.items
                 or name != self.items[id]['name']):
             self.items[id] = {

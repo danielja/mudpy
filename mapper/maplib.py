@@ -79,8 +79,8 @@ class Map(object):
                         ' VALUES '
                         ' ({roomid}, "{direction}", {target_roomid}, "{requires}") '
                         ' ON DUPLICATE KEY UPDATE '
-                        ' direction=direction, target_roomid=target_roomid, '
-                        ' requires=requires ;'.format(
+                        ' direction=value(direction), target_roomid=value(target_roomid), '
+                        ' requires=value(requires) ;'.format(
                             roomid=roomid,
                             direction=exit['direction'],
                             target_roomid=exit['target_roomid'],

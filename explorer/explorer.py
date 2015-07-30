@@ -55,6 +55,10 @@ class Explorer(object):
         self.last_move=''
         self.to_attack = []
 
+        self.sips_health= 0
+        self.sips_mana = 0
+        self.vials_empty = 0
+
         self.my_hps=100
 
         self.explore_area=[]
@@ -86,6 +90,42 @@ class Explorer(object):
         for ally in allres:
             self.allies.append(ally[0].lower())
         print "Allies: ", self.allies
+
+    def buyElixirs(self):
+        mana_count = 0
+        health_count = 0
+        manaClass = ['alchemist', 'apostate','magi','occultist','shaman','sylvan']
+        if self.sips_health < 200:
+            health_count = health_count + 1
+        if self.sips_mana < 200:
+            mana_count = mana_count + 1
+        if self.vials_empty > mana_count + health_count:
+            if player.combatclass in manaClass:
+                mana_count = int(self.vials_empty * .3)
+            health_count = max(health_count,self.vials_empty - mana_count)
+        sage.send('tg')
+        sage.echo("Buying %s health"%health_count)
+        sage.echo("Buying %s mana"%mana_count)
+        for i in range(0,health_count):
+            sage.send('refill empty from health')
+        for i in range(0,mana_count):
+            sage.send('refill empty from mana')
+        self.vials_empty = 0
+        vial_triggers('vial_empty').disable()
+        vial_triggers('vial_stat').disable()
+        vial_triggers('vial_hold').disable()
+        sage.send('pg')
+        if player.willpower.value < player.endurance.value:
+            sage.send('meditate')
+        else:
+            sage.send('sleep')
+
+    def set_sips(self, elixname, sips):
+        if elixname == 'health':
+            self.sips_health = sips
+        if elixname == 'mana':
+            self.sips_mana = sips
+
 
     def clear(self):
         self.cur_target = None
@@ -173,13 +213,18 @@ class Explorer(object):
             self.path = None
             self.state = State.REST
             self.times['last_action'] = time.time()
+            self.vials_empty = 0
+            self.sips_health = 0
+            self.sips_mana = 0
             vial_triggers('vial_empty').enable()
             vial_triggers('vial_stat').enable()
+            vial_triggers('vial_hold').enable()
             sage.send('consolidate health')
             sage.send('consolidate mana')
             sage.send('elixsum health')
             sage.send('elixsum mana')
             sage.send('elixlist empty')
+            sage.delay(1, self.buyElixirs)
             if player.willpower.value < player.endurance.value:
                 sage.send('meditate')
             else:
@@ -467,6 +512,9 @@ do_loop = True
 
 def action_loop():
     global do_loop
+    if player.health.value == 0:
+        sage.send('qq')
+        return
     if do_loop:
         explr.on_begin()
         explr.scope_it_out()
@@ -489,11 +537,11 @@ def xplr_shld(trigger):
 def vial_stat(trigger):
     sage.echo(trigger.groups[0])
     sage.echo(trigger.groups[1])
-#    explr.vial('health', trigger.groups[0].lower())
+    explr.set_sips(trigger.groups[0].lower(), (int)(trigger.groups[1]))
 
 @vial_triggers.regex('^[A-Z][a-z]+ vial[0-9]+[ ]+empty.*$', enabled=False)
 def vial_empty(trigger):
-    sage.echo('empty')
+    explr.vials_empty = explr.vials_empty + 1
 
 @xplr_aliases.exact(pattern="xplr help", intercept=True)
 def xplr_help(alias):
