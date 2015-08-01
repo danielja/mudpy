@@ -105,7 +105,7 @@ class Explorer(object):
             if player.combatclass in manaClass:
                 cur_mana = int(self.sips_mana/200)+mana_count
                 cur_health = int(self.sips_health/200)+health_count
-                mana_count = max(int(self.vials_empty + cur_mana + cur_health * .3) - cur_mana, 0)
+                mana_count = max(int((self.vials_empty + cur_mana + cur_health) * .3) - cur_mana, 0)
             health_count = max(health_count,self.vials_empty - mana_count)
         sage.send('tg')
         sage.echo("Buying %s health"%health_count)
@@ -631,9 +631,9 @@ def xplr_delay(alias):
 @xplr_aliases.startswith(pattern="xplr mana ", intercept=True)
 def xplr_mana(alias):
     explr.times['last_action'] = time.time()
-    query = float(alias.line.split()[2:])
+    query = alias.line.split()[2]
     sage.echo("Setting mana percent: %s " % query)
-    explr.manamin(query)
+    explr.manamin = float(query)
 
 
 @xplr_aliases.startswith(pattern="xplr add ", intercept=True)

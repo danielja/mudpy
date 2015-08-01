@@ -115,8 +115,17 @@ class Map(object):
             elif val['direction'] != exits[targroom]:
                 to_remove.append(targroom)
 
-        for removeid in to_remove:
+        if len(to_remove) > 0:
             print 'removing room because exits changed!'
+            db = mysql.connect(host=self.login[0], user=self.login[1],passwd=self.login[2],
+                    db='achaea',cursorclass=MySQLdb.cursors.DictCursor)
+            cur=db.cursor()
+            cur.execute('delete from achaea.exits where roomid = %s',id)
+            cur.close()
+            db.commit()
+            db.close()
+
+        for removeid in to_remove:
             del self.rooms[id]['exits'][removeid]
 
         for targroom, direction in exits.items():
