@@ -54,6 +54,7 @@ class Explorer(object):
         self.cur_room=0
         self.last_move=''
         self.to_attack = []
+        self.manamin = 0.9
 
         self.sips_health= 0
         self.sips_mana = 0
@@ -95,13 +96,16 @@ class Explorer(object):
         mana_count = 0
         health_count = 0
         manaClass = ['alchemist', 'apostate','magi','occultist','shaman','sylvan']
+        sage.echo("Current sips: (%s, %s)"%(self.sips_health, self.sips_mana))
         if self.sips_health < 200:
             health_count = health_count + 1
         if self.sips_mana < 200:
             mana_count = mana_count + 1
         if self.vials_empty > mana_count + health_count:
             if player.combatclass in manaClass:
-                mana_count = int(self.vials_empty * .3)
+                cur_mana = int(self.sips_mana/200)+mana_count
+                cur_health = int(self.sips_health/200)+health_count
+                mana_count = max(int(self.vials_empty + cur_mana + cur_health * .3) - cur_mana, 0)
             health_count = max(health_count,self.vials_empty - mana_count)
         sage.send('tg')
         sage.echo("Buying %s health"%health_count)
@@ -113,7 +117,6 @@ class Explorer(object):
         self.vials_empty = 0
         vial_triggers('vial_empty').disable()
         vial_triggers('vial_stat').disable()
-        vial_triggers('vial_hold').disable()
         sage.send('pg')
         if player.willpower.value < player.endurance.value:
             sage.send('meditate')
@@ -121,6 +124,7 @@ class Explorer(object):
             sage.send('sleep')
 
     def set_sips(self, elixname, sips):
+        sage.echo('%s : %s'%(elixname, sips))
         if elixname == 'health':
             self.sips_health = sips
         if elixname == 'mana':
@@ -219,7 +223,6 @@ class Explorer(object):
             self.sips_mana = 0
             vial_triggers('vial_empty').enable()
             vial_triggers('vial_stat').enable()
-            vial_triggers('vial_hold').enable()
             sage.send('consolidate health')
             sage.send('consolidate mana')
             sage.send('elixsum health')
@@ -265,7 +268,7 @@ class Explorer(object):
 
         if (self.state == State.RETREAT) and (len(self.visited_order) > 1):
             if (player.health.value > player.health.max*.9
-                    and player.mana.value > player.mana.max*.9):
+                    and player.mana.value > player.mana.max*self.manamin):
                 self.times['last_action'] = time.time()
                 sage.echo("Done with retreat!")
                 self.state = self.pre_state
@@ -481,7 +484,8 @@ class Explorer(object):
                 sage.send('swiftcurse')
             elif (player.combatclass.lower() == 'shaman'):
                 sage.send('swiftcurse %s bleed' % self.cur_target)
-            elif (player.combatclass.lower() == 'magi' and player.mana.value < 1000):
+            elif (player.combatclass.lower() == 'magi' and 
+                     player.mana.value < player.mana.max*self.manamin):
                 sage.send('punch %s' % self.cur_target)
             else:
                 sage.send('kill %s' % self.cur_target)
@@ -623,6 +627,14 @@ def xplr_delay(alias):
     query = alias.line.split()[2]
     explr.action_idle_wait  = float(query)
     sage.echo('setting delay to %s' %query)
+
+@xplr_aliases.startswith(pattern="xplr mana ", intercept=True)
+def xplr_mana(alias):
+    explr.times['last_action'] = time.time()
+    query = float(alias.line.split()[2:])
+    sage.echo("Setting mana percent: %s " % query)
+    explr.manamin(query)
+
 
 @xplr_aliases.startswith(pattern="xplr add ", intercept=True)
 def xplr_add(alias):
