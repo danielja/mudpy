@@ -187,7 +187,9 @@ class Explorer(object):
         if self.path is not None and len(self.path.route) < self.path.step:
             self.path = None
 
-        if ((self.htracker.health < 1.5* self.htracker.ema_health_loss
+        #sage.echo("health status: (%s,%s,%s)"%(self.htracker.health, self.htracker.ema_health_loss, self.htracker.cur_health_loss))
+        if ((self.htracker.health < 1.5* 
+            max(self.htracker.ema_health_loss, self.htracker.cur_health_loss)
              or self.htracker.mana < 200) and
                 self.state != State.RETREAT and not healthy):
             sage.echo("Retreat!")
@@ -274,8 +276,8 @@ class Explorer(object):
                 self.state = self.pre_state
             if ((player.room.id == self.visited_order[-1]) and (idle_time > 0.5) and
                     (len(self.to_attack) > 0) and self.path == None):
-                self.visited_order.pop()
                 self.visited.remove(self.visited_order[-1])
+                self.visited_order.pop()
                 self.path = self.map.path_to_room( player.room.id, self.visited_order[-1],
                         self.blocked)
                 sage.echo("Moving to retreat room")

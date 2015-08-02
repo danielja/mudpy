@@ -36,8 +36,8 @@ class HealthTracker(object):
             self.last_health = cur_health.value
             self.last_mana = cur_mana.value
                 
-        d_health = self.last_health - cur_health.value
-        d_mana   = self.last_mana   - cur_mana.value
+        d_health = cur_health.value - self.last_health
+        d_mana   = cur_mana.value   - self.last_mana
 
         if d_health > 0:
             self.cur_health_gain = self.cur_health_gain + d_health
