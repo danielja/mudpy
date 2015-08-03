@@ -190,6 +190,7 @@ class Explorer(object):
         #sage.echo("health status: (%s,%s,%s)"%(self.htracker.health, self.htracker.ema_health_loss, self.htracker.cur_health_loss))
         if ((self.htracker.health < 1.5* 
             max(self.htracker.ema_health_loss, self.htracker.cur_health_loss)
+            and (player.health.value < player.health.max*.7)
              or self.htracker.mana < 200) and
                 self.state != State.RETREAT and not healthy):
             sage.echo("Retreat!")
