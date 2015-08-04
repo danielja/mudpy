@@ -488,9 +488,6 @@ class Explorer(object):
             elif (player.combatclass.lower() == 'shaman'):
                 sage.send('swiftcurse %s bleed' % self.cur_target)
             elif (player.combatclass.lower() == 'magi' and 
-                     player.mana.value > player.mana.max*self.manamin):
-                sage.send('staffcast scintilla at %s' % self.cur_target)
-            elif (player.combatclass.lower() == 'magi' and 
                      player.mana.value < player.mana.max*self.manamin):
                 sage.send('punch %s' % self.cur_target)
             else:
