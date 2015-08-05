@@ -232,10 +232,10 @@ class Explorer(object):
             sage.send('elixsum mana')
             sage.send('elixlist empty')
             sage.delay(1, self.buyElixirs)
-            if player.willpower.value < player.endurance.value:
-                sage.send('meditate')
-            else:
-                sage.send('sleep')
+            #if player.willpower.value < player.endurance.value:
+            #    sage.send('meditate')
+            #else:
+            #    sage.send('sleep')
 
         end_rest = ((self.state == State.REST) and
                 ((player.willpower.value >= min(max_will, player.willpower.max)) 
