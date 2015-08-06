@@ -396,7 +396,8 @@ class Explorer(object):
 
     def room_actions(self):
         items = [self.imap.items[iid] for iid in player.room.items.keys() if iid in self.imap.items]
-        is_hindered = 'webbed' in player.afflictions or 'paralyzed' in player.afflictions
+        is_hindered = ('webbed' in player.afflictions or 'paralyzed' in player.afflictions 
+                or 'prone' in player.afflictions or 'sleeping' in player.afflictions)
         has_balance = player.balance.is_on() and player.equilibrium.is_on()
         lagging = self.times['last_action'] > self.times['last_ping']
         time_since_action = time.time() - self.times['last_action']
@@ -669,6 +670,11 @@ def dothing2(alias):
     explr.times['last_action'] = time.time()
     explr.state = State.QUEST
     explr.explore_area.append(player.room.area)
+
+@xplr_aliases.exact(pattern="xaff", intercept=True)
+def xaff(alias):
+    sage.echo(player.afflictions)
+
 
 
 
