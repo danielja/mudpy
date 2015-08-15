@@ -149,7 +149,7 @@ class Map(object):
         self.write_to_db()
 
     def path_to_area(self, start, area, blocked=[]):
-        print "find a path to a room"
+        #print "find a path to a room"
         start = long(start)
         # maintain a queue of paths
         queue = deque()
@@ -190,8 +190,43 @@ class Map(object):
         return None
 
 
+    def limit_room_dist(self, start, room_list,  maxdist, blocked=[]):
+        rooms_near = []
+        for room in room_list:
+            res = self.path_to_room(start, room)
+            if res is None or len(res.route) > maxdist:
+                continue
+            rooms_near.append(room)
+        return rooms_near
+ 
+
+    def find_rooms_near(self, room_list,  maxdist, blocked=[]):
+        rooms_near = []
+        visited = set(room_list)
+        new_set = set(room_list)
+        for i in range(0,6):
+            cur_set = new_set
+            new_set = set()
+            for node in cur_set:
+                if node in self.rooms:
+                    for adjacent in self.rooms[node]['exits'].keys():
+                        if adjacent in self.rooms:
+                            can_prosp = (
+                                    self.rooms[adjacent]['environment'].lower() 
+                                    in ['desert','mountains','hills','mountain','polar','tundra','valley'])
+                            if (adjacent not in visited) and can_prosp:
+                                visited.add(adjacent)
+                                new_set.add(adjacent)
+                            if not can_prosp:
+                                print self.rooms[adjacent]['environment'].lower()
+
+        return visited - set(room_list)
+           
+
+
+
     def path_to_room(self, start, end, blocked=[]):
-        print "find a path to a room"
+        #print "find a path to a room"
         start = long(start)
         end = long(end)
         # maintain a queue of paths
@@ -232,6 +267,19 @@ class Map(object):
         echo("No path found")
         return None
 
+
+    def path_to_room_in_set(self, start, already_visited, area, blocked=[]):
+        start = long(start)
+        allpaths = []
+        for room in (area-already_visited):
+            p = self.path_to_room(start, room)
+            if p is not None:
+                allpaths.append(p)
+        allpaths.sort(key=lambda p : len(p.route))
+        if(len(allpaths) == 0):
+            echo("No path found")
+            return None
+        return allpaths[0]
 
 
     def path_to_new_room(self, start, already_visited, area, blocked=[]):

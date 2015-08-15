@@ -29,6 +29,7 @@ class State:
     QUEST = 2
     REST = 3
     RETREAT = 4
+    PROSP = 5
 
 class Explorer(object):
 
@@ -55,6 +56,7 @@ class Explorer(object):
         self.last_move=''
         self.to_attack = []
         self.manamin = 0.9
+        self.mine_rooms = set()
 
         self.sips_health= 0
         self.sips_mana = 0
@@ -338,13 +340,14 @@ class Explorer(object):
 
         if ((self.path is not None) and (player.room.id == self.path.route[-1])):
             self.visited.add(player.room.id)
-            echo("We appear to be at the end of our route:"
+            if(self.state != State.PROSP):
+                echo("We appear to be at the end of our route:"
                     "{end},{cur}".format(end=self.path.route[-1], cur=player.room.id))
             self.path.step = self.path.step+1
             return
 
         do_move = ((self.state == State.EXPLORE or self.state == State.QUEST
-            or self.state == State.RETREAT)
+            or self.state == State.RETREAT or self.state == State.PROSP)
                     and idle_time > 0.5 and not lagging and self.can_move
                     and action_idle > self.action_idle_wait)
         if self.path.step >= len(self.path.route):
@@ -362,6 +365,17 @@ class Explorer(object):
     def scope_it_out(self):
         if not self.do_scope:
             return
+
+        if player.room is not None and player.room.id is not None and player.name is not None:
+            db = mysql.connect(host=self.login[0], user=self.login[1],passwd=self.login[2],
+                    db='achaea',cursorclass=MySQLdb.cursors.DictCursor)
+            cur=db.cursor()
+            cur.execute("INSERT into achaea.allies (`ally`,`roomid`) VALUES (%s,%s)"
+                    " ON DUPLICATE KEY UPDATE ally=ally, roomid=values(roomid) ",
+                    (player.name, player.room.id))
+            cur.close()
+            db.commit()
+            db.close()
 
         self.do_scope=False
         just_entered = False
@@ -403,6 +417,23 @@ class Explorer(object):
         time_since_action = time.time() - self.times['last_action']
 
         self.can_move = not is_hindered and has_balance 
+
+        can_prosp = player.room.environment.lower() in ['desert','hills','mountains','polar','tundra','valley']
+
+        if not lagging and time_since_action > 1.0:
+            if self.state == State.PROSP and self.path is None:
+                if player.room.id in self.mine_rooms and can_prosp:
+                    sage.send('prospect')
+                self.visited.add(player.room.id)
+                self.path = self.map.path_to_room_in_set( player.room.id,
+                    self.visited, self.mine_rooms, self.blocked)
+                if self.path is None:
+                    print "Starting over!"
+                    self.visited = set([player.room.id])
+                    self.path = self.map.path_to_room_in_set( player.room.id,
+                        self.visited, self.mine_rooms, self.blocked)
+                self.times['last_action'] = time.time()
+
 
         if not lagging and self.can_take_stuff and time_since_action > 0.5:
             for item in items:
@@ -472,7 +503,7 @@ class Explorer(object):
         self.to_attack = to_attack
 
         if (len(to_attack) == 0 or self.canAttack == False or lagging or self.state == State.QUEST
-                or self.state == State.RETREAT):
+                or self.state == State.RETREAT or self.state == State.PROSP):
             return
 
         if not self.cur_target or self.cur_target not in player.room.items.keys():
@@ -539,6 +570,18 @@ def action_loop():
 xplr_triggers = triggers.create_group('xplr', app='explorer')
 xplr_aliases  = aliases.create_group('xplr', app='explorer')
 vial_triggers = triggers.create_group('vials', app='explorer')
+
+@xplr_triggers.substring(' lode ', enabled=True)
+def xplr_lode(trigger):
+    if not trigger.line.startswith('You are enough'):
+        print player.room.id 
+        print trigger.line
+        sage.send('read sign')
+
+
+@xplr_triggers.substring(' is owned by ', enabled=True)
+def xplr_sign(trigger):
+    print trigger.line
 
 @xplr_triggers.regex('^A nearly invisible magical shield forms around (.*).', enabled=True)
 def xplr_shld(trigger):
@@ -674,6 +717,21 @@ def dothing2(alias):
 @xplr_aliases.exact(pattern="xaff", intercept=True)
 def xaff(alias):
     sage.echo(player.afflictions)
+
+@xplr_aliases.exact(pattern="xplr mine", intercept=True)
+def xmine(alias):
+    from mapper.mapper import mapdata, itemdata
+    explr.path=None
+    explr.times['last_action'] = time.time()
+    explr.state = State.PROSP
+    explr.visited = set()
+    srooms = itemdata.find_rooms_with('stronghold')
+    srooms = mapdata.limit_room_dist(player.room.id, srooms, 1000)
+    print srooms
+    explr.mine_rooms = mapdata.find_rooms_near(srooms, 6)
+    print explr.mine_rooms
+
+
 
 
 

@@ -115,6 +115,19 @@ class ItemMap(object):
 
         print("Mapper: Updated %i items" % counter)
 
+    def find_rooms_with(self, shortname):
+        res = {}
+        for itemid,item in self.items.iteritems():
+            if shortname in item['name']:
+                if item['name'] in res:
+                    res[item['name']].append(item['lastroom'])
+                else:
+                    res[item['name']] = [item['lastroom']]
+        for name, rooms in res.iteritems():
+            print name, rooms
+            return rooms
+
+
     def add_shortname(self, id, shortname):
         id = long(id)
         if id in self.items and self.items[id]['short_name'] == '':
