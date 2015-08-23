@@ -698,6 +698,19 @@ def xplr_add(alias):
     else:
         sage.echo("Need only one area to match. Nothing added.")
 
+@xplr_aliases.startswith(pattern="xtime ", intercept=True)
+def xplr_time(alias):
+    channel = alias.line.split()[1]
+    query = ' '.join(alias.line.split()[2:])
+    if ":" in query:
+        query, cmd = query.split(":")
+    sage.delay(1,sage.send, '%s %s in 5'%(channel, query))
+    sage.delay(2,sage.send, '%s 4'%channel)
+    sage.delay(3,sage.send, '%s 3'%channel)
+    sage.delay(4,sage.send, '%s 2'%channel)
+    sage.delay(5,sage.send, '%s 1'%channel)
+    sage.delay(6,sage.send, '%s NOW'%channel)
+    sage.delay(6.01,sage.send, cmd)
 
 @xplr_aliases.exact(pattern="thing1", intercept=True)
 def dothing1(alias):
@@ -717,6 +730,11 @@ def dothing2(alias):
 @xplr_aliases.exact(pattern="xaff", intercept=True)
 def xaff(alias):
     sage.echo(player.afflictions)
+
+@xplr_aliases.exact(pattern="xdef", intercept=True)
+def xdef(alias):
+    sage.echo(player.defences)
+
 
 @xplr_aliases.exact(pattern="xplr mine", intercept=True)
 def xmine(alias):
