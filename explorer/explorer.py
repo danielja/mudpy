@@ -553,7 +553,7 @@ class Explorer(object):
 
             others_here = [p.lower() for p in player.room.players]
 
-            if self.leader_here and self.path is not None and self.can_move:
+            if self.leader_here and self.path is not None and self.can_move and self.state == State.EXPLORE:
                 sage.send('follow %s'%self.leader)
                 self.path = None
                 self.leader_here = self.leader in others_here
