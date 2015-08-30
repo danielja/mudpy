@@ -39,6 +39,10 @@ class Explorer(object):
 
         from mapper.mapper import mapdata, itemdata
         from health_tracker.health_tracker import tracker
+        self.leader=""
+        self.leader_here=""
+        self.leader_room=0
+        self.leader_following=True
         self.pre_state = State.STOP
         self.cur_target = None
         self.break_shield = False
@@ -265,6 +269,12 @@ class Explorer(object):
                 len(self.explore_area) > 0)
         #print find_new_room, self.state, self.path, self.explore_area
 
+        if (not self.leader_here and self.state == State.EXPLORE 
+                and player.room.id != self.leader_room and 
+                (self.path is None or self.leader_room != self.path.route[-1])):
+            sage.echo("Setting path to walk to leader")
+            self.path = self.map.path_to_room( player.room.id, self.leader_room, self.blocked)
+
         if go_to_rest:
             sage.echo("Setting the state to be quest to walk to sleepzone")
             self.state = State.QUEST
@@ -341,8 +351,12 @@ class Explorer(object):
         if ((self.path is not None) and (player.room.id == self.path.route[-1])):
             self.visited.add(player.room.id)
             if(self.state != State.PROSP):
+                if self.leader_following:
+                    sage.send("follow %s"%self.leader)
                 echo("We appear to be at the end of our route:"
                     "{end},{cur}".format(end=self.path.route[-1], cur=player.room.id))
+                self.path = None
+                return
             self.path.step = self.path.step+1
             return
 
@@ -361,6 +375,9 @@ class Explorer(object):
             #self.times['last_action'] = self.times['time']
             self.times['last_move'] = self.times['time']
 
+    def followLeader(self):
+        self.leader_following = True
+
     #only need to scope it out if we've just entered a room or something has changed
     def scope_it_out(self):
         if not self.do_scope:
@@ -373,6 +390,14 @@ class Explorer(object):
             cur.execute("INSERT into achaea.allies (`ally`,`roomid`) VALUES (%s,%s)"
                     " ON DUPLICATE KEY UPDATE ally=ally, roomid=values(roomid) ",
                     (player.name, player.room.id))
+            cur.execute("select ally,roomid from achaea.allies where `leader`=1")
+            allres = cur.fetchall()
+            if allres is not None and len(allres) == 1:
+                leader=allres[0]['ally'].lower()
+                self.leader_room=long(allres[0]['roomid'])
+                if(leader != self.leader):
+                    sage.echo("Changing leader from %s to %s"%(self.leader, leader))
+                    self.leader = leader
             cur.close()
             db.commit()
             db.close()
@@ -389,6 +414,11 @@ class Explorer(object):
         others_here = [p.lower() for p in player.room.players]
         allies_here = list(set(others_here) & set(self.allies))
         others_here = list(set(others_here) - set(self.allies))
+
+        if self.leader_following:
+            self.leader_here = self.leader in others_here or self.leader in allies_here
+        else:
+            self.leader_here = True
 
         room_dps = len([iid for iid,item in player.room.items.iteritems() if item.denizen])
 
@@ -457,7 +487,8 @@ class Explorer(object):
         # did we just get here, has anything been added
         
     def quest_actions(self):
-        is_hindered = 'webbed' in player.afflictions or 'paralyzed' in player.afflictions
+        is_hindered = ('webbed' in player.afflictions or 'paralyzed' in player.afflictions 
+                or 'prone' in player.afflictions or 'sleeping' in player.afflictions)
         has_balance = player.balance.is_on() and player.equilibrium.is_on()
 
         self.can_move = not is_hindered and has_balance 
@@ -484,7 +515,8 @@ class Explorer(object):
         # refresh only if we just got here or anything new happened
 
     def attacks(self):
-        is_hindered = 'webbed' in player.afflictions or 'paralyzed' in player.afflictions
+        is_hindered = ('webbed' in player.afflictions or 'paralyzed' in player.afflictions 
+                or 'prone' in player.afflictions or 'sleeping' in player.afflictions)
         has_balance = player.balance.is_on() and player.equilibrium.is_on()
 
         self.can_move = not is_hindered and has_balance 
@@ -502,8 +534,32 @@ class Explorer(object):
         lagging = self.times['last_action'] > self.times['last_ping']
         self.to_attack = to_attack
 
+        if self.leader_following:
+            #### Get the leader's location
+            db = mysql.connect(host=self.login[0], user=self.login[1],passwd=self.login[2],
+                    db='achaea',cursorclass=MySQLdb.cursors.DictCursor)
+            cur=db.cursor()
+            cur.execute("select ally,roomid from achaea.allies where `leader`=1")
+            allres = cur.fetchall()
+            if allres is not None and len(allres) == 1:
+                leader=allres[0]['ally'].lower()
+                self.leader_room=long(allres[0]['roomid'])
+                if(leader != self.leader):
+                    sage.echo("Changing leader from %s to %s"%(self.leader, leader))
+                    self.leader = leader
+            cur.close()
+            db.commit()
+            db.close()
+
+            others_here = [p.lower() for p in player.room.players]
+
+            if self.leader_here and self.path is not None and self.can_move:
+                sage.send('follow %s'%self.leader)
+                self.path = None
+                self.leader_here = self.leader in others_here
+
         if (len(to_attack) == 0 or self.canAttack == False or lagging or self.state == State.QUEST
-                or self.state == State.RETREAT or self.state == State.PROSP):
+                or self.state == State.RETREAT or self.state == State.PROSP or not self.leader_here):
             return
 
         if not self.cur_target or self.cur_target not in player.room.items.keys():
@@ -620,6 +676,11 @@ def xplr_start(alias):
     global do_loop
     do_loop = True
     action_loop()
+
+@xplr_aliases.exact(pattern="xplr fol", intercept=True)
+def xplr_follow(alias):
+    explr.leader_following =  not explr.leader_following
+    sage.echo("Switching following to %s"%explr.leader_following)
 
 @xplr_aliases.exact(pattern="xplr pause", intercept=True)
 def xplr_pause(alias):
