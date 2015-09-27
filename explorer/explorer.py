@@ -627,12 +627,20 @@ xplr_triggers = triggers.create_group('xplr', app='explorer')
 xplr_aliases  = aliases.create_group('xplr', app='explorer')
 vial_triggers = triggers.create_group('vials', app='explorer')
 
-@xplr_triggers.substring(' lode ', enabled=True)
+@xplr_triggers.regex('^You determine that there is a [a-z]+ lode of [a-z ]+ here.$', enabled=True)
 def xplr_lode(trigger):
     if not trigger.line.startswith('You are enough'):
         print player.room.id 
         print trigger.line
         sage.send('read sign')
+
+@xplr_triggers.regex("^There is a [a-z ]+ mine here on a [a-z ]+ lode that you'd guess is approximately .*$", enabled=True)
+def xplr_lode2(trigger):
+    if not trigger.line.startswith('You are enough'):
+        print player.room.id 
+        print trigger.line
+        sage.send('read sign')
+
 
 
 @xplr_triggers.substring(' is owned by ', enabled=True)
@@ -825,6 +833,5 @@ room_players.connect(explr.room_updated)
 room_remove_item.connect(explr.room_updated)
 room_remove_player.connect(explr.room_updated)
 skills.connect(explr.skills_update)
-
 
 
