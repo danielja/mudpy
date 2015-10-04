@@ -441,7 +441,8 @@ class Explorer(object):
     def room_actions(self):
         items = [self.imap.items[iid] for iid in player.room.items.keys() if iid in self.imap.items]
         is_hindered = ('webbed' in player.afflictions or 'paralyzed' in player.afflictions 
-                or 'prone' in player.afflictions or 'sleeping' in player.afflictions)
+                or 'prone' in player.afflictions or 'sleeping' in player.afflictions
+                or 'transfixed' in player.afflictions)
         has_balance = player.balance.is_on() and player.equilibrium.is_on()
         lagging = self.times['last_action'] > self.times['last_ping']
         time_since_action = time.time() - self.times['last_action']
@@ -488,7 +489,8 @@ class Explorer(object):
         
     def quest_actions(self):
         is_hindered = ('webbed' in player.afflictions or 'paralyzed' in player.afflictions 
-                or 'prone' in player.afflictions or 'sleeping' in player.afflictions)
+                or 'prone' in player.afflictions or 'sleeping' in player.afflictions
+                or 'transfixed' in player.afflictions)
         has_balance = player.balance.is_on() and player.equilibrium.is_on()
 
         self.can_move = not is_hindered and has_balance 
