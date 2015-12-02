@@ -62,6 +62,7 @@ class Explorer(object):
         self.cur_room=0
         self.last_move=''
         self.to_attack = []
+        self.killon = True
         self.manamin = 0.9
         self.mine_rooms = set()
         self.roomact = None
@@ -585,7 +586,7 @@ class Explorer(object):
         if smap.use_br(target=self.cur_target, shield=self.break_shield):
             self.break_shield = False
 
-        if has_balance and not is_hindered:
+        if has_balance and not is_hindered and self.killon:
             if(player.combatclass.lower() == 'shaman') and (smap.swiftcurses < 2):
                 sage.send('swiftcurse')
             elif (player.combatclass.lower() == 'shaman'):
@@ -777,6 +778,14 @@ def vial_stat(trigger):
 @vial_triggers.regex('^[A-Z][a-z]+ vial[0-9]+[ ]+empty.*$', enabled=False)
 def vial_empty(trigger):
     explr.vials_empty = explr.vials_empty + 1
+
+@xplr_aliases.exact(pattern="xplr kon", intercept=True)
+def xplr_kon(alias):
+    explr.killon = True
+
+@xplr_aliases.exact(pattern="xplr koff", intercept=True)
+def xplr_koff(alias):
+    explr.killon = False
 
 @xplr_aliases.exact(pattern="xplr lmine", intercept=True)
 def xplr_lmine(alias):
