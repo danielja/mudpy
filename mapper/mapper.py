@@ -42,7 +42,8 @@ def add_items(**kwargs):
                 itemdata.add_area(long(iid), long(room.id), room.area)
     else:
         item = kwargs['item']
-        if long(item.id) not in itemdata.items:
+        if (long(item.id) not in itemdata.items
+                or item.name != itemdata.items[long(item.id)]['name']):
             item_new = True
             if item.denizen and item.dead:
                 return
@@ -108,6 +109,7 @@ def short_on(alias):
 @room_aliases.exact(pattern="imap save", intercept=True)
 def isave(alias):
     itemdata.write_to_db()
+    mapdata.write_to_db()
 
 @room_aliases.exact(pattern="imap load", intercept=True)
 def iload(alias):

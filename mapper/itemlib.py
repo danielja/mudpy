@@ -173,6 +173,28 @@ class ItemMap(object):
         if area not in self.items[id]['areas']:
             self.items[id]['areas'].append(area)
 
+        db = mysql.connect(host=self.login[0], user=self.login[1],passwd=self.login[2],
+                db='achaea',cursorclass=MySQLdb.cursors.DictCursor)
+        cur=db.cursor()
+        cur.execute('SELECT itemid, long_name, short_name, classified, quest_actions, room_actions '
+                'FROM achaea.item_actions where long_name=%s;',self.items[id]['name'])
+        allres = cur.fetchall()
+        for res in allres:
+            res['classified'] = res['classified'] if res['classified'] is not None else ''
+            res['quest_actions'] = res['quest_actions'] if res['quest_actions'] is not None else ''
+            res['room_actions'] = res['room_actions'] if res['room_actions'] is not None else ''
+            if res['itemid'] == self.items[id]['itemid']:
+                self.items[id]['classified'] = res['classified']
+                self.items[id]['quest_actions'] = res['quest_actions']
+                self.items[id]['room_actions'] = res['room_actions']
+            elif res['long_name'] != self.items[id]['name']:
+                self.items[id]['classified'] = res['classified']
+                self.items[id]['quest_actions'] = res['quest_actions']
+                self.items[id]['room_actions'] = res['room_actions']
+        db.close()
+
+
+
             
         if self.items[id]['updated']:
             self.new += 1

@@ -189,6 +189,23 @@ class Map(object):
         echo("No path found")
         return None
 
+    def find_rooms_exact(self, name):
+        res = []
+        for roomid,room in self.rooms.iteritems():
+            if name.lower() == room['name'].lower():
+                res.append(roomid)
+        return res
+
+    def find_room_like(self, name, doecho=False):
+        res = []
+        counter=1
+        for roomid,room in self.rooms.iteritems():
+            if name in room['name']:
+                res.append(roomid)
+                if doecho:
+                    echo("%s#%s : (%s) %s"%(counter,roomid,room['area'],room['name']))
+                    counter = counter+1
+        return res
 
     def limit_room_dist(self, start, room_list,  maxdist, blocked=[]):
         rooms_near = []
@@ -217,8 +234,6 @@ class Map(object):
                             if (adjacent not in visited) and can_prosp:
                                 visited.add(adjacent)
                                 new_set.add(adjacent)
-                            if not can_prosp:
-                                print self.rooms[adjacent]['environment'].lower()
 
         return visited - set(room_list)
            
