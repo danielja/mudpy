@@ -787,11 +787,18 @@ def xplr_kon(alias):
 def xplr_koff(alias):
     explr.killon = False
 
-@xplr_aliases.exact(pattern="xplr lmine", intercept=True)
+@xplr_aliases.startswith(pattern="xplr lmine", intercept=True)
 def xplr_lmine(alias):
+    query = alias.line.split()
+    if len(query) > 2:
+        query= " ".join(query[2:])
+    else:
+        query=None
     for entry in explr.all_mines:
-        sage.echo("(%s, %s): %s %s %s %s"%(entry[3],entry[4],entry[0],
-                entry[1], entry[2], entry[6]))
+        output = "(%s, %s): %s %s %s %s"%(entry[3],entry[4],entry[0],
+                entry[1], entry[2], entry[6])
+        if query is None or query in output:
+            sage.echo(output)
 
 @xplr_aliases.exact(pattern="xplr help", intercept=True)
 def xplr_help(alias):
