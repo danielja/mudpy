@@ -47,12 +47,15 @@ class Explorer(object):
         self.cur_target = None
         self.break_shield = False
         self.map = mapdata
+        self.search_roomids = []
+        self.all_mines = []
         self.imap = itemdata
         self.state = State.STOP
         self.path = None
         self.can_move = True
         self.canAttack = True
         self.action_idle_wait = 0.5
+        self.move_idle_wait = 0.5
         self.allies=[]
         self.took_items=[]
         self.unquest_items=[]
@@ -61,6 +64,8 @@ class Explorer(object):
         self.to_attack = []
         self.manamin = 0.9
         self.mine_rooms = set()
+        self.roomact = None
+        self.tars= []
 
         self.sips_health= 0
         self.sips_mana = 0
@@ -362,7 +367,7 @@ class Explorer(object):
 
         do_move = ((self.state == State.EXPLORE or self.state == State.QUEST
             or self.state == State.RETREAT or self.state == State.PROSP)
-                    and idle_time > 0.5 and not lagging and self.can_move
+                    and idle_time > self.move_idle_wait and not lagging and self.can_move
                     and action_idle > self.action_idle_wait)
         if self.path.step >= len(self.path.route):
             self.path = None
@@ -409,6 +414,8 @@ class Explorer(object):
             self.cur_room = player.room.id
             just_entered = True
             self.times['entered'] = time.time()
+            if(self.roomact is not None):
+                sage.send(self.roomact)
         just_entered = just_entered and (self.times['last_room'] > self.times['last_scope'])
 
         others_here = [p.lower() for p in player.room.players]
@@ -442,7 +449,8 @@ class Explorer(object):
         items = [self.imap.items[iid] for iid in player.room.items.keys() if iid in self.imap.items]
         is_hindered = ('webbed' in player.afflictions or 'paralyzed' in player.afflictions 
                 or 'prone' in player.afflictions or 'sleeping' in player.afflictions
-                or 'transfixed' in player.afflictions)
+                or 'transfixation' in player.afflictions or 'aeon' in player.afflictions
+                or 'entangled' in player.afflictions)
         has_balance = player.balance.is_on() and player.equilibrium.is_on()
         lagging = self.times['last_action'] > self.times['last_ping']
         time_since_action = time.time() - self.times['last_action']
@@ -460,6 +468,8 @@ class Explorer(object):
                     self.visited, self.mine_rooms, self.blocked)
                 if self.path is None:
                     print "Starting over!"
+                    self.all_mines = [entry for entry in 
+                            self.all_mines if time.time() - entry[5] < 1800]
                     self.visited = set([player.room.id])
                     self.path = self.map.path_to_room_in_set( player.room.id,
                         self.visited, self.mine_rooms, self.blocked)
@@ -490,7 +500,8 @@ class Explorer(object):
     def quest_actions(self):
         is_hindered = ('webbed' in player.afflictions or 'paralyzed' in player.afflictions 
                 or 'prone' in player.afflictions or 'sleeping' in player.afflictions
-                or 'transfixed' in player.afflictions)
+                or 'transfixation' in player.afflictions or 'aeon' in player.afflictions
+                or 'entangled' in player.afflictions)
         has_balance = player.balance.is_on() and player.equilibrium.is_on()
 
         self.can_move = not is_hindered and has_balance 
@@ -518,7 +529,9 @@ class Explorer(object):
 
     def attacks(self):
         is_hindered = ('webbed' in player.afflictions or 'paralyzed' in player.afflictions 
-                or 'prone' in player.afflictions or 'sleeping' in player.afflictions)
+                or 'prone' in player.afflictions or 'sleeping' in player.afflictions
+                or 'transfixation' in player.afflictions or 'aeon' in player.afflictions
+                or 'entangled' in player.afflictions)
         has_balance = player.balance.is_on() and player.equilibrium.is_on()
 
         self.can_move = not is_hindered and has_balance 
@@ -629,29 +642,131 @@ xplr_triggers = triggers.create_group('xplr', app='explorer')
 xplr_aliases  = aliases.create_group('xplr', app='explorer')
 vial_triggers = triggers.create_group('vials', app='explorer')
 
-@xplr_triggers.regex('^You determine that there is a [a-z]+ lode of [a-z ]+ here.$', enabled=True)
+@xplr_triggers.regex('^You determine that there is a ([a-z]+) lode of ([a-z ]+) here. Approximately ([0-9]+)% has been mined.$', enabled=True)
+def xplr_lode_partial(trigger):
+    #entry=(type, size, percent, location, area, owner)
+    entry=[trigger.groups[1].lower(), trigger.groups[0].lower(), trigger.groups[2],
+            player.room.id, player.room.area, time.time(), "NONE"]
+    explr.all_mines.append(entry)
+    print player.room.id 
+    print trigger.line
+
+
+@xplr_triggers.regex('^You determine that there is a ([a-z]+) lode of ([a-z ]+) here.$', enabled=True)
 def xplr_lode(trigger):
-    if not trigger.line.startswith('You are enough'):
-        print player.room.id 
-        print trigger.line
-        sage.send('read sign')
+    #entry=(type, size, percent, location, area, owner)
+    entry=[trigger.groups[1].lower(), trigger.groups[0].lower(), "0",
+            player.room.id, player.room.area, time.time(), "NONE"]
+    explr.all_mines.append(entry)
+    print player.room.id 
+    print trigger.line
 
-@xplr_triggers.regex("^There is a [a-z ]+ mine here on a [a-z ]+ lode that you'd guess is approximately .*$", enabled=True)
+@xplr_triggers.regex("^There is a ([a-z ]+) mine here on a ([a-z ]+) lode that you'd guess is approximately ([0-9]+). mined out.$", enabled=True)
 def xplr_lode2(trigger):
-    if not trigger.line.startswith('You are enough'):
-        print player.room.id 
-        print trigger.line
-        sage.send('read sign')
+    entry=[trigger.groups[1].lower(), trigger.groups[0], trigger.groups[2],
+            player.room.id, player.room.area, time.time(), "Unknown"]
+    explr.all_mines.append(entry)
+    print player.room.id 
+    print trigger.line
+    sage.send('read sign')
 
-
-
-@xplr_triggers.substring(' is owned by ', enabled=True)
+@xplr_triggers.regex('^This .* mine is owned by ([A-Z][a-z]*).$', enabled=True)
 def xplr_sign(trigger):
     print trigger.line
+    entry = explr.all_mines[-1]
+    if(time.time() - entry[5] > 10):
+        return
+    entry[6] = trigger.groups[0].lower()
 
 @xplr_triggers.regex('^A nearly invisible magical shield forms around (.*).', enabled=True)
 def xplr_shld(trigger):
     explr.shield(trigger.groups[0].lower())
+
+minermap={}
+@xplr_aliases.exact('miners', enabled=True)
+def get_miner_stats(alias):
+    global minermap
+    minermap={}
+    xplr_triggers('legion_list').enable()
+    xplr_triggers('legion_list_over').enable()
+    xplr_triggers('legion_ignore_dash').enable()
+    xplr_triggers('legion_ignore_id').enable()
+    sage.send('legion list')
+
+@xplr_aliases.startswith('miner deploy', enabled=True)
+def get_miner_deploy(alias):
+    query = alias.line.split()
+    if len(query) < 4:
+        sage.echo("USAGE: miner deploy (army|miner) (number) (assualt)")
+    mtype = query[2]
+    count = int(query[3])
+    get_miner_stats(alias)
+    sage.delay(1, deploy_miners, count, mtype)
+
+def deploy_miners(count, mtype):
+    global minermap
+    squadstr = ""
+    total = 0
+    for x in sorted(minermap.iteritems(), key=lambda(x, y): y['size'], reverse=True):
+        valid = x[1]['type'] == 'miners' if mtype == 'miner' else x[1]['type'] != 'miners' 
+        if x[1]['status'] != 'deployed' and valid:
+            if x[1]['size'] < count:
+                squadstr = "%s %s"%(squadstr,x[0])
+                sage.echo(x[1])
+                total += x[1]['size']
+                count -= x[1]['size']
+                sage.echo("count left: %s"%count)
+    sage.echo("legion deploy squads %s"%squadstr)
+    sage.send("legion deploy squads %s"%squadstr)
+
+
+
+@xplr_triggers.regex("^[-]+$",enabled=False)
+def legion_ignore_dash(trigger):
+    trigger.line.gag()
+
+@xplr_triggers.regex("^ID[ ]+.*$",enabled=False)
+def legion_ignore_id(trigger):
+    trigger.line.gag()
+
+@xplr_triggers.regex("^([0-9]+)[ ]+([a-z]+)[ ]+[A-Za-z']+ [A-Za-z]+[ ]+([0-9]+)[ ]+([0-9]+) +([a-z]+) .*$",enabled=False)
+def legion_list(trigger):
+    trigger.line.gag()
+    global minermap
+    id=trigger.groups[0]
+    type=trigger.groups[1]
+    level=trigger.groups[2]
+    size=int(trigger.groups[3])
+    status=trigger.groups[4]
+    minermap[id] = {'id':id, 'type':type, 'level':level, 'size':size, 'status':status}
+
+@xplr_triggers.regex("^Your Legion numbers ([0-9]+) strong.$", enabled=False)
+def legion_list_over(trigger):
+    trigger.line.gag()
+    global minermap
+    xplr_triggers('legion_list').disable()
+    xplr_triggers('legion_ignore_dash').disable()
+    xplr_triggers('legion_ignore_id').disable()
+    xplr_triggers('legion_list_over').disable()
+    deployed_miners = 0
+    deployed_army = 0
+    avail_miners = 0
+    avail_army = 0
+    for val in minermap.values():
+        if val['type'] == 'miners' and val['status'] == 'deployed':
+            deployed_miners += val['size']
+        if val['type'] == 'miners' and val['status'] != 'deployed':
+            avail_miners += val['size']
+        if val['type'] != 'miners' and val['status'] == 'deployed':
+            deployed_army += val['size']
+        if val['type'] != 'miners' and val['status'] != 'deployed':
+            avail_army += val['size']
+    sage.echo("Avail Miners: %s"%avail_miners)
+    sage.echo("Avail Army: %s"%avail_army)
+    sage.echo("Deployed Miners: %s"%deployed_miners)
+    sage.echo("Deployed Army: %s"%deployed_army)
+
+
 
 @vial_triggers.regex('^an elixir of (health|mana)[ ]+([0-9]*).*$', enabled=False)
 def vial_stat(trigger):
@@ -662,6 +777,12 @@ def vial_stat(trigger):
 @vial_triggers.regex('^[A-Z][a-z]+ vial[0-9]+[ ]+empty.*$', enabled=False)
 def vial_empty(trigger):
     explr.vials_empty = explr.vials_empty + 1
+
+@xplr_aliases.exact(pattern="xplr lmine", intercept=True)
+def xplr_lmine(alias):
+    for entry in explr.all_mines:
+        sage.echo("(%s, %s): %s %s %s %s"%(entry[3],entry[4],entry[0],
+                entry[1], entry[2], entry[6]))
 
 @xplr_aliases.exact(pattern="xplr help", intercept=True)
 def xplr_help(alias):
@@ -739,6 +860,13 @@ def xplr_ally(alias):
     explr.allies.append(query)
     sage.send('ally %s' %query)
 
+@xplr_aliases.startswith(pattern="xplr mdelay ", intercept=True)
+def xplr_mdelay(alias):
+    query = alias.line.split()[2]
+    explr.move_idle_wait = float(query)
+    sage.echo('setting move delay to %s' %query)
+
+
 @xplr_aliases.startswith(pattern="xplr delay ", intercept=True)
 def xplr_delay(alias):
     explr.times['last_action'] = time.time()
@@ -752,6 +880,34 @@ def xplr_mana(alias):
     query = alias.line.split()[2]
     sage.echo("Setting mana percent: %s " % query)
     explr.manamin = float(query)
+
+
+@xplr_aliases.startswith(pattern="xplr go ", intercept=True)
+def xplr_go(alias):
+    query = ' '.join(alias.line.split()[2:])
+    explr.times['last_action'] = time.time()
+    if query.isdigit():
+        explr.explore_area = []
+        explr.path = None
+        explr.path = explr.map.path_to_room( player.room.id, query, explr.blocked)
+    elif query[0] == '#' and query[1:].isdigit():
+        query=int(query[1:])-1
+        if(len(explr.search_roomids) < query):
+            sage.echo("Room id not stored. current length is %s : %s"%(len(explr.search_roomids),
+                explr.search_roomids))
+            return
+        explr.explore_area = []
+        explr.path = None
+        explr.path = explr.map.path_to_room( player.room.id, explr.search_roomids[query], explr.blocked)
+    else:
+        sage.echo("Searching for room: %s " % query)
+        explr.search_roomids = explr.map.find_room_like(query,doecho=True)
+        sage.echo("Matches for room: %s" % explr.search_roomids)
+        if len(explr.search_roomids) == 1:
+            explr.explore_area.append(matches[0])
+            explr.explore_area = []
+            explr.path = None
+            explr.path = explr.map.path_to_room( player.room.id, explr.search_roomids[0], explr.blocked)
 
 
 @xplr_aliases.startswith(pattern="xplr add ", intercept=True)
@@ -782,6 +938,36 @@ def xplr_time(alias):
     sage.delay(5,sage.send, '%s 1'%channel)
     sage.delay(6,sage.send, '%s NOW'%channel)
     sage.delay(6.01,sage.send, cmd)
+
+@xplr_aliases.startswith(pattern="mab ", intercept=True)
+def xplr_mab(alias):
+    move = alias.line.split()[1]
+    block= alias.line.split()[2]
+    cmd = 'unblock | %s | block %s'%(move,block)
+    sage.delay(1,sage.send, 'pt Moving %s, block %s, in 5'%(move, block))
+    sage.delay(2,sage.send, 'pt Moving %s, block %s, in 4'%(move, block))
+    sage.delay(3,sage.send, 'pt Moving %s, block %s, in 3'%(move,block))
+    sage.delay(4,sage.send, 'pt Moving %s, block %s, in 2'%(move,block))
+    sage.delay(5,sage.send, 'pt Moving %s, block %s, in 1'%(move,block))
+    sage.delay(6,sage.send, 'pt Moving %s, block %s,  NOW'%(move,block))
+    sage.delay(6.01,sage.send, cmd)
+
+@xplr_aliases.startswith(pattern="tars ", intercept=True)
+def xplr_tars(alias):
+    explr.tars= alias.line.split()[1:]
+
+@xplr_aliases.exact(pattern="tars", intercept=True)
+def xplr_tars(alias):
+    sage.echo(tars)
+
+@xplr_aliases.startswith(pattern="xact ", intercept=True)
+def xplr_act(alias):
+    explr.roomact = ' '.join(alias.line.split()[1:])
+    sage.send(explr.roomact)
+
+@xplr_aliases.exact(pattern="xact", intercept=True)
+def xplr_act2(alias):
+    explr.roomact = None
 
 @xplr_aliases.exact(pattern="thing1", intercept=True)
 def dothing1(alias):
@@ -816,7 +1002,6 @@ def xmine(alias):
     explr.visited = set()
     srooms = itemdata.find_rooms_with('stronghold')
     srooms = mapdata.limit_room_dist(player.room.id, srooms, 1000)
-    print srooms
     explr.mine_rooms = mapdata.find_rooms_near(srooms, 6)
     print explr.mine_rooms
 
