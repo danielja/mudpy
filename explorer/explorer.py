@@ -416,7 +416,11 @@ class Explorer(object):
             just_entered = True
             self.times['entered'] = time.time()
             if(self.roomact is not None):
-                sage.send(self.roomact)
+                if self.roomact.startswith('wait '):
+                    waittime = float(re.sub('wait ','',self.roomact.split('/')[0]))
+                    sage.delay(waittime,sage.send, self.roomact.split('/')[1])
+                else:
+                    sage.send(self.roomact)
         just_entered = just_entered and (self.times['last_room'] > self.times['last_scope'])
 
         others_here = [p.lower() for p in player.room.players]
@@ -469,11 +473,13 @@ class Explorer(object):
                     self.visited, self.mine_rooms, self.blocked)
                 if self.path is None:
                     print "Starting over!"
+                    '''
                     self.all_mines = [entry for entry in 
                             self.all_mines if time.time() - entry[5] < 1800]
                     self.visited = set([player.room.id])
                     self.path = self.map.path_to_room_in_set( player.room.id,
                         self.visited, self.mine_rooms, self.blocked)
+                    '''
                 self.times['last_action'] = time.time()
 
 
@@ -973,13 +979,18 @@ def xplr_tars(alias):
     explr.tars= alias.line.split()[1:]
 
 @xplr_aliases.exact(pattern="tars", intercept=True)
-def xplr_tars(alias):
-    sage.echo(tars)
+def xplr_tars_echo(alias):
+    sage.echo(explr.tars)
 
 @xplr_aliases.startswith(pattern="xact ", intercept=True)
 def xplr_act(alias):
     explr.roomact = ' '.join(alias.line.split()[1:])
-    sage.send(explr.roomact)
+
+    if explr.roomact.startswith('wait '):
+        waittime = float(re.sub('wait ','',explr.roomact.split('/')[0]))
+        sage.delay(waittime,sage.send, explr.roomact.split('/')[1])
+    else:
+        sage.send(explr.roomact)
 
 @xplr_aliases.exact(pattern="xact", intercept=True)
 def xplr_act2(alias):
