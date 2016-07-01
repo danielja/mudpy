@@ -8,7 +8,10 @@ import pprint
 import MySQLdb as mysql
 import MySQLdb.cursors
 
-from sage import echo
+import cleverbot
+import thread
+
+from sage import echo, ansi
 from sage import player, triggers, aliases
 from sage.signals import player_connected
 
@@ -25,6 +28,9 @@ inames = [item['name'].lower() for item in itemdata.items.values() if 'name' in 
 login_info = None
 last_pull_time = time.time()
 do_pull = True
+convos = {}
+last_response=0
+dotalk = False
 
 with open('mapper/mysql.cfg') as f:
       login_info = [x.strip().split(':') for x in f.readlines()][0]
@@ -86,11 +92,67 @@ def echo_comms(talker, channel, text, **kwargs):
         db.commit()
     db.close()
 
+def chatstuff(talker, channel, text, **kwargs):
+    global convos
+    global last_response
+    global talkon
+    if talker.lower() == player.name.lower() or talker.lower() == 'you' or not talkon:
+         return
+    thread.start_new_thread(chatstuffThreaded, (talker, channel, ansi.filter_ansi(text)))
+
+def chatstuffThreaded(talker, channel, text):
+    global convos
+    global last_response
+    global talkon
+    key = (talker, channel)
+    if (player.name in text) or (channel == 'says') or (channel.startswith('tell')):
+        if (talker, channel) not in convos:
+            sage.echo("Starting a new convo")
+            val = {
+                    'time' : time.time(),
+                    'response' : '',
+                    'bot' : cleverbot.Cleverbot()
+                   }
+            convos[key] = val
+        val = convos[key]
+        response = ''
+        if channel == 'says':
+            response = 'say '
+        elif channel.startswith('clt'):
+            response = 'clan switch %s;clt '%(re.sub('clt','',channel))
+        elif channel.startswith('tell'):
+            response = channel + ' '
+        else:
+            sage.echo("SOMEONE SAID MY NAME OVER %s!!!"%channel)
+            return
+        sage.echo(re.sub('"','',re.sub('.*, "','',text)))
+        sage.echo(talker)
+        sage.echo(channel)
+        response = response + ' ' + val['bot'].ask(text)
+
+        last_response = max(time.time(), last_response)
+        time_to_type = len(response)/5.0
+        last_response = last_response + time_to_type
+        sage.delay(last_response-time.time(), sage.send, response)
+
 comms.connect(echo_comms)
+comms.connect(chatstuff)
 pull_comms()
 
 comm_triggers = triggers.create_group('comm', app='communication')
 comm_aliases  = aliases.create_group('comm', app='communication')
+
+@comm_aliases.startswith (pattern="talkon", intercept=True)
+def talkon(alias):
+    global talkon
+    talkon = True
+    sage.echo("Enabling chatter")
+
+@comm_aliases.startswith (pattern="talkoff", intercept=True)
+def talkoff(alias):
+    global talkon
+    talkon = False
+    sage.echo("Disabling chatter")
 
 @comm_aliases.startswith (pattern="comm do ", intercept=True)
 def comm_do(alias):
