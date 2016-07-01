@@ -462,6 +462,53 @@ def echo_aff(signal,affliction):
 def echo_aff_rem(signal,affliction):
     sage.echo(ansi.bold_green("REMOVED AFFLICTION: %s"%affliction).encode('utf-8'))
 
+
+
+### chatter
+chatter_trigs = triggers.create_group('chatter', app='combat')
+chatter_aliases  = aliases.create_group('chatteral', app='combat')
+
+@chatter_aliases.exact('chatteron', enabled=True)
+def chatteron(alias):
+    sage.echo("Enabling filter for combat chatter")
+    chatter_trigs.enable()
+
+@chatter_aliases.exact('chatteroff', enabled=True)
+def chatteroff(alias):
+    sage.echo("Disabling filter for combat chatter")
+    chatter_trigs.disable()
+
+@chatter_trigs.regex(pattern="^([A-Z][a-z]+) takes a drink from .*.$", enabled=True)
+def drinkstuff(trigger):
+    trigger.gag_prompt=True
+    trigger.line.gag()
+
+@chatter_trigs.regex(pattern="^([A-Z][a-z]+) takes a long drag off (his|her) pipe.$", enabled=True)
+def smokestuff(trigger):
+    trigger.gag_prompt=True
+    trigger.line.gag()
+
+@chatter_trigs.regex(pattern="A great weight seems to have been lifted from ^([A-Z][a-z]+).$", enabled=True)
+def massoff(trigger):
+    trigger.gag_prompt=True
+    trigger.line.gag()
+
+@chatter_trigs.regex(pattern="^([A-Z][a-z]+)'s aura of weapons rebounding disappears.$", enabled=True)
+def rebon(trigger):
+    trigger.gag_prompt=True
+    trigger.line.gag()
+
+@chatter_trigs.regex(pattern="^([A-Z][a-z]+) inhales and begins holding (his|her) breath.$", enabled=True)
+def holdbreathon(trigger):
+    trigger.gag_prompt=True
+    trigger.line.gag()
+
+@chatter_trigs.regex(pattern="^([A-Z][a-z]+) exhales loudly.$", enabled=True)
+def holdbreathoff(trigger):
+    trigger.gag_prompt=True
+    trigger.line.gag()
+
+
 post_prompt.connect(tracker.end)
 affliction_add.connect(echo_aff)
 affliction_remove.connect(echo_aff_rem)
