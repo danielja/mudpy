@@ -42,7 +42,7 @@ class Explorer(object):
         self.leader=""
         self.leader_here=""
         self.leader_room=0
-        self.leader_following=True
+        self.leader_following=False
         self.pre_state = State.STOP
         self.cur_target = None
         self.break_shield = False
@@ -464,7 +464,7 @@ class Explorer(object):
 
         can_prosp = player.room.environment.lower() in ['desert','hills','mountains','polar','tundra','valley']
 
-        if not lagging and time_since_action > 1.0:
+        if not lagging and time_since_action > 0.0:
             if self.state == State.PROSP and self.path is None:
                 if player.room.id in self.mine_rooms and can_prosp:
                     sage.send('prospect')
@@ -472,10 +472,10 @@ class Explorer(object):
                 self.path = self.map.path_to_room_in_set( player.room.id,
                     self.visited, self.mine_rooms, self.blocked)
                 if self.path is None:
-                    print "Starting over!"
-                    '''
+                    print "Done!"
                     self.all_mines = [entry for entry in 
                             self.all_mines if time.time() - entry[5] < 1800]
+                    '''
                     self.visited = set([player.room.id])
                     self.path = self.map.path_to_room_in_set( player.room.id,
                         self.visited, self.mine_rooms, self.blocked)
@@ -593,10 +593,13 @@ class Explorer(object):
             self.break_shield = False
 
         if has_balance and not is_hindered and self.killon:
-            if(player.combatclass.lower() == 'shaman') and (smap.swiftcurses < 2):
-                sage.send('swiftcurse')
-            elif (player.combatclass.lower() == 'shaman'):
-                sage.send('swiftcurse %s bleed' % self.cur_target)
+            #if(player.combatclass.lower() == 'shaman') and (smap.swiftcurses < 2):
+            #    sage.send('swiftcurse')
+            #elif (player.combatclass.lower() == 'shaman'):
+            #    sage.send('swiftcurse %s bleed' % self.cur_target)
+            #el
+            if (player.combatclass.lower() == 'shaman'):
+                sage.send('invoke roar %s' % self.cur_target)
             elif (player.combatclass.lower() == 'magi' and 
                      player.mana.value < player.mana.max*self.manamin):
                 sage.send('punch %s' % self.cur_target)
@@ -926,7 +929,7 @@ def xplr_go(alias):
         explr.search_roomids = explr.map.find_room_like(query,doecho=True)
         sage.echo("Matches for room: %s" % explr.search_roomids)
         if len(explr.search_roomids) == 1:
-            explr.explore_area.append(matches[0])
+            explr.explore_area.append(explr.search_roomids[0])
             explr.explore_area = []
             explr.path = None
             explr.path = explr.map.path_to_room( player.room.id, explr.search_roomids[0], explr.blocked)
